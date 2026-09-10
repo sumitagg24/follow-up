@@ -1,4 +1,38 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
 * { font-family: Inter, system-ui, -apple-system, sans-serif; }
+
+/* ---------- Motion ---------- */
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes scale-in {
+  from { opacity: 0; transform: translateY(6px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes slide-in-right {
+  from { opacity: 0; transform: translateX(16px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes slide-in-left {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(0); }
+}
+
+.animate-fade-in      { animation: fade-in 150ms ease-out both; }
+.animate-scale-in     { animation: scale-in 180ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+.animate-slide-in-right { animation: slide-in-right 200ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+.animate-slide-in-left { animation: slide-in-left 200ms ease-out both; }
+
+/* ---------- Focus ---------- */
+@layer base {
+  :focus-visible { outline: 2px solid #0f172a; outline-offset: 2px; border-radius: 4px; }
+}
+
+/* ---------- Reduced motion ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-in, .animate-scale-in, .animate-slide-in-right, .animate-slide-in-left {
+    animation: none;
+  }
+  * { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
+}

@@ -1,35 +1,72 @@
 import { Request, Response } from "express";
 import { Venture } from "../models/Venture.js";
 import { FollowUp } from "../models/FollowUp.js";
+import { Task } from "../models/Task.js";
 import { Activity } from "../models/Activity.js";
+import { asyncHandler } from "../utils/http.js";
 
-export async function getStats(req: Request, res: Response) {
-  const totalVentures = await Venture.countDocuments();
-  const pendingFollowUps = await FollowUp.countDocuments({ status: "pending" });
-  const overdueFollowUps = await FollowUp.countDocuments({ status: "overdue" });
-  const completedFollowUps = await FollowUp.countDocuments({ status: "completed" });
-  const startOfToday = new Date(); startOfToday.setHours(0,0,0,0);
-  const endOfToday = new Date(); endOfToday.setHours(23,59,59,999);
-  const todaysFollowUps = await FollowUp.countDocuments({ dueDate: { $gte: startOfToday, $lte: endOfToday }, status: { $in: ["pending","overdue"] } });
-  res.json({ totalVentures, pendingFollowUps, todaysFollowUps, overdueFollowUps, completedFollowUps });
+async function computeStats() {
+  const startOfToday = new Date(); startOfToday.setHours(0, 0, 0, 0);
+  const endOfToday = new Date(); endOfToday.setHours(23, 59, 59, 999);
+  const [totalVentures, activeVentures, pendingFollowUps, overdueFollowUps, completedFollowUps, todaysFollowUps, openTasks, completedTasks] =
+    await Promise.all([
+      Venture.countDocuments(),
+      Venture.countDocuments({ status: { $in: ["Evaluation", "Review", "Active"] } }),
+      FollowUp.countDocuments({ status: "pending" }),
+      FollowUp.countDocuments({ status: "overdue" }),
+      FollowUp.countDocuments({ status: "completed" }),
+      FollowUp.countDocuments({
+        dueDate: { $gte: startOfToday, $lte: endOfToday },
+        status: { $in: ["pending", "overdue"] },
+      }),
+      Task.countDocuments({ status: "pending" }),
+      Task.countDocuments({ status: "completed" }),
+    ]);
+  return { totalVentures, activeVentures, pendingFollowUps, todaysFollowUps, overdueFollowUps, completedFollowUps, openTasks, completedTasks };
 }
 
-export async function getDashboardData(req: Request, res: Response) {
-  const stats = await (async()=>{
-    const totalVentures = await Venture.countDocuments();
-    const pendingFollowUps = await FollowUp.countDocuments({ status: "pending" });
-    const overdueFollowUps = await FollowUp.countDocuments({ status: "overdue" });
-    const completedFollowUps = await FollowUp.countDocuments({ status: "completed" });
-    const startOfToday = new Date(); startOfToday.setHours(0,0,0,0);
-    const endOfToday = new Date(); endOfToday.setHours(23,59,59,999);
-    const todaysFollowUps = await FollowUp.countDocuments({ dueDate: { $gte: startOfToday, $lte: endOfToday }, status: { $in: ["pending","overdue"] } });
-    return { totalVentures, pendingFollowUps, todaysFollowUps, overdueFollowUps, completedFollowUps };
-  })();
-  const startOfToday = new Date(); startOfToday.setHours(0,0,0,0);
-  const endOfToday = new Date(); endOfToday.setHours(23,59,59,999);
-  const todays = await FollowUp.find({ dueDate: { $gte: startOfToday, $lte: endOfToday } }).populate("ventureId").sort({ dueDate:1 }).lean();
-  // also include overdue for today's list ? spec says Today's Follow-ups: we show today's due only.
-  // Let's include pending/overdue due today + overdue
-  const activities = await Activity.find({}).sort({ createdAt:-1 }).limit(10).lean();
-  res.json({ stats, todaysFollowUps: todays, recentActivity: activities });
+export const getStats = asyncHandler(async (req: Request, res: Response) => {
+  res.json(await computeStats());
+});
+
+/** Next follow-ups due within the next N days (pending only, future dates). */
+async function upcomingFollowUps(days = 7) {
+  const startOfTomorrow = new Date(); startOfTomorrow.setHours(0, 0, 0, 0);
+  startOfTomorrow.setDate(startOfTomorrow.getDate() + 1);
+  const endOfWindow = new Date(startOfTomorrow);
+  endOfWindow.setDate(endOfWindow.getDate() + days - 1);
+  endOfWindow.setHours(23, 59, 59, 999);
+  return FollowUp.find({ dueDate: { $gte: startOfTomorrow, $lte: endOfWindow }, status: "pending" })
+    .populate("ventureId")
+    .sort({ dueDate: 1 })
+    .limit(10)
+    .lean();
 }
+
+async function lastAutomationRun() {
+  const last = await Activity.findOne({ action: "automation_run" }).sort({ createdAt: -1 }).lean();
+  if (!last) return null;
+  return {
+    at: last.createdAt,
+    ...(last.meta as any),
+    description: last.description,
+  };
+}
+
+export const getDashboardData = asyncHandler(async (req: Request, res: Response) => {
+  const startOfToday = new Date(); startOfToday.setHours(0, 0, 0, 0);
+  const endOfToday = new Date(); endOfToday.setHours(23, 59, 59, 999);
+
+  const [stats, todays, overdue, upcoming, activities, automation] = await Promise.all([
+    computeStats(),
+    FollowUp.find({ dueDate: { $gte: startOfToday, $lte: endOfToday }, status: { $in: ["pending", "overdue"] } })
+      .populate("ventureId").sort({ dueDate: 1 }).limit(10).lean(),
+    FollowUp.find({ status: "overdue" })
+      .populate("ventureId").sort({ dueDate: 1 }).limit(10).lean(),
+    upcomingFollowUps(7),
+    Activity.find({}).sort({ createdAt: -1 }).limit(10).lean(),
+    lastAutomationRun(),
+  ]);
+
+  res.json({ stats, todaysFollowUps: todays, overdueFollowUps: overdue, upcomingFollowUps: upcoming, recentActivity: activities, lastAutomationRun: automation });
+});

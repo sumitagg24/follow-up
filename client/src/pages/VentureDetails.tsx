@@ -6,10 +6,13 @@ import { VentureBadge, FollowUpBadge, TaskBadge } from "../components/StatusBadg
 import { Modal } from "../components/Modal";
 import { useToast } from "../components/Toast";
 import { fmtDate } from "../utils/format";
+import { usePageTitle } from "../hooks/usePageTitle";
+import { SkeletonCard } from "../components/Skeleton";
 import { CheckCircle, Calendar, Mail, Building, User, Clock } from "lucide-react";
 
 export function VentureDetails() {
   const { id } = useParams();
+  usePageTitle("Venture details");
   const [data,setData]=useState<any>(null);
   const [loading,setLoading]=useState(true);
   const [error,setError]=useState<string|null>(null);
@@ -33,7 +36,16 @@ export function VentureDetails() {
     try{ await api.completeTask(t._id); toast.push(`Task "${t.title}" completed`,"success"); load(); }catch(e:any){ toast.push(e.message,"error")}
   }
 
-  if(loading) return <div className="p-6 text-sm text-slate-500">Loading…</div>;
+  if(loading) return (
+    <div className="p-4 lg:p-6 max-w-6xl mx-auto">
+      <div className="grid lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 space-y-6">
+          <SkeletonCard lines={3}/><SkeletonCard lines={3}/><SkeletonCard lines={3}/>
+        </div>
+        <div><SkeletonCard lines={4}/></div>
+      </div>
+    </div>
+  );
   if(error) return <div className="p-6 text-sm text-red-600">{error}</div>;
   if(!data) return null;
   const { venture, followUp, tasks, activities } = data;

@@ -3,13 +3,16 @@ import { Link } from "react-router-dom";
 import { api } from "../api/client";
 import { Header } from "../components/Header";
 import { VentureBadge } from "../components/StatusBadge";
-import { EmptyState, LoadingState } from "../components/EmptyState";
-import { fmtDate } from "../utils/format";
-import { Modal } from "../components/Modal";
+import { EmptyState } from "../components/EmptyState";
+import { SkeletonRow } from "../components/Skeleton";
+import { ConfirmDialog } from "../components/ConfirmDialog";
 import { useToast } from "../components/Toast";
-import { Search, Plus, Trash2, Eye, Pencil } from "lucide-react";
+import { fmtDate } from "../utils/format";
+import { usePageTitle } from "../hooks/usePageTitle";
+import { Search, Plus, Trash2, Eye, Pencil, Building2, SearchX } from "lucide-react";
 
 export function Ventures() {
+  usePageTitle("Ventures");
   const [data,setData]=useState<any[]>([]);
   const [loading,setLoading]=useState(true);
   const [error,setError]=useState<string|null>(null);
@@ -38,6 +41,8 @@ export function Ventures() {
     return ()=>clearTimeout(t);
   },[search]);
 
+  const searching = search.trim().length > 0 || status !== "";
+
   async function confirmDelete(){
     try{ await api.deleteVenture(toDelete._id); toast.push("Venture deleted","success"); setToDelete(null); load(); }catch(e:any){ toast.push(e.message,"error")}
   }
@@ -61,7 +66,14 @@ export function Ventures() {
         </select>
       </div>
 
-      {loading ? <LoadingState/> : error ? <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-sm text-red-700">{error}</div> : data.length===0 ? <EmptyState title="No ventures found" desc="Create your first venture to get started." action={<Link to="/ventures/new" className="inline-flex px-4 py-2 rounded-xl bg-slate-900 text-white text-sm">Add Venture</Link>}/> : (
+      {loading ? (
+        <div className="space-y-3">{Array.from({length:5}).map((_,i)=><SkeletonRow key={i}/>)}
+        </div>
+      ) : error ? <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-sm text-red-700">{error}</div> : data.length===0 ? (
+        searching
+          ? <EmptyState icon={SearchX} title="No ventures match your filters" desc={`Nothing found for "${search || status}". Try a different search term or clear the status filter.`}/>
+          : <EmptyState icon={Building2} title="No ventures yet" desc="Create your first venture — initial review, founder follow-up and internal discussion tasks are generated automatically." action={<Link to="/ventures/new" className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-900 text-white text-sm font-medium"><Plus size={16}/> Add Venture</Link>}/>
+      ) : (
         <>
         {/* desktop table */}
         <div className="hidden md:block bg-white rounded-2xl border overflow-hidden">
@@ -74,7 +86,8 @@ export function Ventures() {
                   <th className="text-left px-4 py-3 font-medium">Industry</th>
                   <th className="text-left px-4 py-3 font-medium">Status</th>
                   <th className="text-left px-4 py-3 font-medium">Follow-up</th>
-                  <th className="text-left px-4 py-3 font-medium">Created</th>
+                  <th className="text-left px-4 py-3 font-medium">Tasks</th>
+                  <th className="text-left px-4 py-3 font-medium">Last activity</th>
                   <th className="text-right px-4 py-3 font-medium">Actions</th>
                 </tr>
               </thead>
@@ -84,9 +97,15 @@ export function Ventures() {
                     <td className="px-4 py-3 font-medium whitespace-nowrap">{v.name}</td>
                     <td className="px-4 py-3 whitespace-nowrap">{v.founderName}<div className="text-xs text-slate-500">{v.founderEmail}</div></td>
                     <td className="px-4 py-3 whitespace-nowrap">{v.industry}</td>
-                    <td className="px-4 py-3"><VentureBadge status={v.status}/></td>
+                    <td className="px-4 py-3 whitespace-nowrap"><VentureBadge status={v.status}/></td>
                     <td className="px-4 py-3 whitespace-nowrap">{v.followUp ? fmtDate(v.followUp.dueDate) : fmtDate(v.followUpDate)}<div className="text-xs"><span className={`inline-block w-2 h-2 rounded-full mr-1 ${v.followUp?.status==="overdue"?"bg-red-500":v.followUp?.status==="completed"?"bg-emerald-500":"bg-amber-500"}`}/>{v.followUp?.status||"-"}</div></td>
-                    <td className="px-4 py-3 whitespace-nowrap text-slate-500">{fmtDate(v.createdAt)}</td>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <div className="text-xs">{v.taskCounts?.completed ?? 0}/{v.taskCounts?.total ?? 0} done</div>
+                      <div className="w-16 h-1.5 rounded-full bg-slate-100 mt-1 overflow-hidden"><div className="h-full bg-emerald-500 rounded-full" style={{width: v.taskCounts?.total ? `${(v.taskCounts.completed/v.taskCounts.total)*100}%` : "0%"}}/></div>
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap text-slate-500">
+                      {v.lastActivity ? <div><div className="text-xs">{fmtDate(v.lastActivity.lastAt)}</div><div className="text-xs truncate max-w-[160px]">{v.lastActivity.lastDescription}</div></div> : "—"}
+                    </td>
                     <td className="px-4 py-3">
                       <div className="flex justify-end gap-1">
                         <Link to={`/ventures/${v._id}`} className="p-2 hover:bg-white rounded-lg border bg-slate-50"><Eye size={14}/></Link>
@@ -109,6 +128,7 @@ export function Ventures() {
                 <VentureBadge status={v.status}/>
               </div>
               <div className="text-xs text-slate-500 mt-2">Follow-up: {v.followUp? fmtDate(v.followUp.dueDate): fmtDate(v.followUpDate)} ({v.followUp?.status})</div>
+              <div className="text-xs text-slate-500 mt-1">Tasks: {v.taskCounts?.completed ?? 0}/{v.taskCounts?.total ?? 0} completed</div>
               <div className="flex gap-2 mt-3">
                 <Link to={`/ventures/${v._id}`} className="flex-1 py-2 rounded-xl border text-center text-sm font-medium">View</Link>
                 <Link to={`/ventures/${v._id}/edit`} className="flex-1 py-2 rounded-xl border text-center text-sm font-medium">Edit</Link>
@@ -120,13 +140,14 @@ export function Ventures() {
         </>
       )}
 
-      <Modal open={!!toDelete} onClose={()=>setToDelete(null)} title="Delete Venture?">
-        <p className="text-sm text-slate-600">Are you sure you want to delete <b>{toDelete?.name}</b>? This will also delete its follow-ups, tasks and activity. This action cannot be undone.</p>
-        <div className="flex justify-end gap-2 mt-6">
-          <button onClick={()=>setToDelete(null)} className="px-4 py-2 rounded-xl border text-sm">Cancel</button>
-          <button onClick={confirmDelete} className="px-4 py-2 rounded-xl bg-red-600 text-white text-sm font-medium">Delete</button>
-        </div>
-      </Modal>
+      <ConfirmDialog
+        open={!!toDelete}
+        onClose={()=>setToDelete(null)}
+        onConfirm={confirmDelete}
+        title="Delete venture?"
+        confirmLabel="Delete venture"
+        message={<>You're about to permanently delete <b>{toDelete?.name}</b>. Its follow-ups, tasks and activity history will be removed as well. This action cannot be undone.</>}
+      />
     </div>
   );
 }

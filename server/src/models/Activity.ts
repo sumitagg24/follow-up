@@ -6,6 +6,8 @@ const ActivitySchema = new mongoose.Schema(
     ventureName: { type: String, default: "" },
     action: { type: String, required: true },
     description: { type: String, required: true },
+    // Optional structured payload (e.g. automation run summary)
+    meta: { type: mongoose.Schema.Types.Mixed, default: null },
   },
   { timestamps: { createdAt: true, updatedAt: false } }
 );

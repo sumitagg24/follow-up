@@ -23,13 +23,23 @@ export const api = {
   updateVenture: (id:string,data:any) => req<any>(`/api/ventures/${id}`, { method:"PUT", body: JSON.stringify(data)}),
   deleteVenture: (id:string) => req<any>(`/api/ventures/${id}`, { method:"DELETE"}),
   getDashboardStats: () => req<any>(`/api/dashboard/stats`),
-  getDashboard: () => req<{stats:any,todaysFollowUps:any[],recentActivity:any[]}>(`/api/dashboard`),
+  getDashboard: () => req<{stats:any,todaysFollowUps:any[],overdueFollowUps:any[],upcomingFollowUps:any[],recentActivity:any[],lastAutomationRun:any}>(`/api/dashboard`),
   getFollowUps: (status?: string) => req<any[]>(`/api/followups${status?`?status=${status}`:""}`),
   completeFollowUp: (id:string) => req<any>(`/api/followups/${id}/complete`, { method:"PUT"}),
   rescheduleFollowUp: (id:string,dueDate:string) => req<any>(`/api/followups/${id}/reschedule`, { method:"PUT", body: JSON.stringify({dueDate})}),
   getTasks: (ventureId?:string) => req<any[]>(`/api/tasks${ventureId?`?ventureId=${ventureId}`:""}`),
   completeTask: (id:string) => req<any>(`/api/tasks/${id}/complete`, { method:"PUT"}),
-  getActivity: () => req<any[]>(`/api/activity`),
+  getActivity: (params?: Record<string,string>) => {
+    const q = params ? "?" + new URLSearchParams(params).toString() : "";
+    return req<any[]>(`/api/activity${q}`);
+  },
   runAutomation: () => req<any>(`/api/automation/check-followups`, { method:"POST"}),
+  getAnalytics: () => req<{
+    venturesByStatus: {_id:string,count:number}[];
+    followUpOutcomes: {_id:string,count:number}[];
+    taskStats: {_id:string,count:number}[];
+    activityVolume: {date:string,count:number}[];
+  }>(`/api/analytics`),
+  getSystemStatus: () => req<any>(`/api/system`),
   seed: () => req<any>(`/api/seed`, { method:"POST"}),
 };

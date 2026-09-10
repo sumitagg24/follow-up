@@ -3,60 +3,89 @@ import { Venture } from "../models/Venture.js";
 import { Activity } from "../models/Activity.js";
 import { sendReminderEmail } from "./emailService.js";
 
-export async function createActivity(ventureId: any, ventureName: string, action: string, description: string) {
-  return Activity.create({ ventureId, ventureName, action, description });
+export async function createActivity(ventureId: any, ventureName: string, action: string, description: string, meta: any = null) {
+  return Activity.create({ ventureId, ventureName, action, description, meta });
 }
 
-export async function checkDueFollowUps() {
-  const now = new Date();
-  const startOfToday = new Date(now); startOfToday.setHours(0,0,0,0);
-  const endOfToday = new Date(now); endOfToday.setHours(23,59,59,999);
-  const startOfTodayISO = startOfToday.toISOString().slice(0,10);
+/** Store a structured automation run summary as activity history. */
+async function recordRunHistory(summary: {
+  triggeredBy: "cron" | "manual";
+  checked: number;
+  overdueFound: number;
+  remindersGenerated: number;
+  emailsSent: number;
+  durationMs: number;
+}) {
+  const label = summary.triggeredBy === "cron" ? "scheduled run" : "manual run";
+  await Activity.create({
+    ventureId: null,
+    ventureName: "",
+    action: "automation_run",
+    description: `Automation ${label}: checked ${summary.checked}, overdue ${summary.overdueFound}, reminders ${summary.remindersGenerated}, emails ${summary.emailsSent}`,
+    meta: summary,
+  });
+}
 
-  const pending = await FollowUp.find({ status: { $in: ["pending","overdue"] } }).populate("ventureId");
+/** Zeroed-out local midnight for a date (day-anchored comparisons). */
+function dayFloor(d: Date): Date {
+  const x = new Date(d);
+  x.setHours(0, 0, 0, 0);
+  return x;
+}
+
+/** YYYY-MM-DD of a date's local day — used as the dedupe key. */
+function dayKey(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+export async function checkDueFollowUps(triggeredBy: "cron" | "manual" = "cron") {
+  const started = Date.now();
+  const now = new Date();
+  const startOfToday = dayFloor(now);
+  const todayKey = dayKey(now);
+
+  const pending = await FollowUp.find({ status: { $in: ["pending", "overdue"] } }).populate("ventureId");
 
   let overdueCount = 0;
   let remindersGenerated = 0;
   let emailsSent = 0;
-  let checked = pending.length;
+  const checked = pending.length;
 
   for (const fu of pending) {
     const v: any = fu.ventureId;
-    if (!v) continue;
+    if (!v?._id) continue;
 
-    const due = new Date(fu.dueDate);
-    due.setHours(0,0,0,0);
-    const isOverdue = due < startOfToday;
-    const isDueToday = due.getTime() === startOfToday.getTime();
+    const dueDay = dayFloor(fu.dueDate);
+    const isOverdue = dueDay < startOfToday;
+    const isDueToday = dueDay.getTime() === startOfToday.getTime();
+    if (!isOverdue && !isDueToday) continue;
 
     // Mark overdue if pending and past due
     if (isOverdue && fu.status === "pending") {
       fu.status = "overdue";
       await fu.save();
-      await createActivity(v._id, v.name, "followup_overdue", `Follow-up for "${v.name}" is overdue (was due ${fu.dueDate.toISOString().slice(0,10)})`);
+      await createActivity(v._id, v.name, "followup_overdue", `Follow-up for "${v.name}" is overdue (was due ${dayKey(fu.dueDate)})`);
       overdueCount++;
     }
 
-    const shouldRemind = isOverdue || isDueToday;
-    if (!shouldRemind) continue;
-
-    // Duplicate prevention: same venture, same due-date-day, same action within today
-    // We check if there is already a reminder activity for this venture today for this due date.
-    // Simplest: check Activity where action=reminder_generated and description contains due date and createdAt >= startOfToday
-    const dueStr = fu.dueDate.toISOString().slice(0,10);
+    // Duplicate prevention: one reminder per venture per due-day.
+    const key = dayKey(fu.dueDate);
     const existing = await Activity.findOne({
       ventureId: v._id,
       action: "reminder_generated",
-      description: { $regex: dueStr },
-      createdAt: { $gte: startOfToday }
+      description: { $regex: `due ${key}\\b` },
     });
     if (existing) continue;
 
-    // Generate reminder activity
-    await createActivity(v._id, v.name, "reminder_generated", `Reminder generated for "${v.name}" — due ${dueStr} (${fu.status})`);
+    await createActivity(
+      v._id, v.name, "reminder_generated",
+      `Reminder generated for "${v.name}" — due ${key} (${fu.status})`
+    );
     remindersGenerated++;
 
-    // Attempt email
     const emailResult = await sendReminderEmail({
       ventureName: v.name,
       founderName: v.founderName,
@@ -68,11 +97,20 @@ export async function checkDueFollowUps() {
       emailsSent++;
       await createActivity(v._id, v.name, "reminder_email_sent", `Reminder email sent for "${v.name}" to ${v.founderEmail}`);
     } else if (emailResult.devLogged) {
-      await createActivity(v._id, v.name, "reminder_email_dev", `Reminder email (dev log) for "${v.name}" — due ${dueStr}`);
+      await createActivity(v._id, v.name, "reminder_email_dev", `Reminder email (dev log) for "${v.name}" — due ${key}`);
     } else if ((emailResult as any).error) {
       await createActivity(v._id, v.name, "reminder_email_failed", `Reminder email failed for "${v.name}": ${(emailResult as any).error}`);
     }
   }
 
-  return { checked, overdueFound: overdueCount, remindersGenerated, emailsSent };
+  const summary = { triggeredBy, checked, overdueFound: overdueCount, remindersGenerated, emailsSent, durationMs: Date.now() - started };
+
+  // Automation history lives in the existing Activity collection (meta field)
+  try {
+    await recordRunHistory(summary);
+  } catch (e) {
+    console.error("[AUTOMATION] Failed to record run history", e);
+  }
+
+  return summary;
 }

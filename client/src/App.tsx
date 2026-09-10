@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Sidebar } from "./components/Sidebar";
 import { ToastProvider } from "./components/Toast";
 import { Dashboard } from "./pages/Dashboard";
@@ -6,6 +6,11 @@ import { Ventures } from "./pages/Ventures";
 import { VentureForm } from "./pages/VentureForm";
 import { VentureDetails } from "./pages/VentureDetails";
 import { ActivityLog } from "./pages/ActivityLog";
+import { Tasks } from "./pages/Tasks";
+import { Automation } from "./pages/Automation";
+import { Analytics } from "./pages/Analytics";
+import { Settings } from "./pages/Settings";
+import { NotFound } from "./pages/NotFound";
 
 export default function App() {
   return (
@@ -22,8 +27,12 @@ export default function App() {
               <Route path="/ventures/new" element={<VentureForm/>}/>
               <Route path="/ventures/:id/edit" element={<VentureForm/>}/>
               <Route path="/ventures/:id" element={<VentureDetails/>}/>
+              <Route path="/tasks" element={<Tasks/>}/>
+              <Route path="/automation" element={<Automation/>}/>
               <Route path="/activity" element={<ActivityLog/>}/>
-              <Route path="*" element={<Navigate to="/" replace/>}/>
+              <Route path="/analytics" element={<Analytics/>}/>
+              <Route path="/settings" element={<Settings/>}/>
+              <Route path="*" element={<NotFound/>}/>
             </Routes>
           </main>
         </div>
