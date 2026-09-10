@@ -1,0 +1,31 @@
+{
+  "name": "founder-followup-server",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "seed": "tsx src/seed.ts",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.1",
+    "mongodb-memory-server": "^10.4.0",
+    "mongoose": "^8.9.5",
+    "node-cron": "^4.6.0",
+    "nodemailer": "^10.0.3"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.10.5",
+    "@types/node-cron": "^3.0.11",
+    "@types/nodemailer": "^6.4.15",
+    "tsx": "^4.19.1",
+    "typescript": "^5.7.3",
+    "vitest": "^5.0.0"
+  }
+}

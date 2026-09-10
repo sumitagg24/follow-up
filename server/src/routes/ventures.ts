@@ -1,0 +1,10 @@
+import { Router } from "express";
+import { listVentures, getVenture, createVenture, updateVenture, deleteVenture, getVentureActivity } from "../controllers/ventureController.js";
+const r = Router();
+r.get("/", listVentures);
+r.get("/:id", getVenture);
+r.post("/", createVenture);
+r.put("/:id", updateVenture);
+r.delete("/:id", deleteVenture);
+r.get("/:id/activity", getVentureActivity);
+export default r;
