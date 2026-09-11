@@ -11,11 +11,18 @@ import analyticsRoutes from "./routes/analytics.js";
 import systemRoutes from "./routes/system.js";
 import authRoutes from "./routes/auth.js";
 import { requireAuth } from "./middleware/auth.js";
+import { securityHeaders } from "./middleware/securityHeaders.js";
+import { isProduction, requireEnv } from "./utils/env.js";
 import { HttpError } from "./utils/http.js";
 
 export function createApp() {
   const app = express();
-  app.use(cors({ origin: process.env.CLIENT_URL || "http://localhost:5173" }));
+  app.disable("x-powered-by");
+  app.use(securityHeaders);
+  // In production CLIENT_URL must be explicit — never silently allow a
+  // localhost default on a public deployment. Development keeps the default.
+  const clientUrl = requireEnv("CLIENT_URL", "http://localhost:5173");
+  app.use(cors({ origin: clientUrl }));
   app.use(express.json({ limit: "1mb" }));
 
   app.get("/api/health", (req, res) => res.json({ ok: true, time: new Date().toISOString() }));
@@ -33,10 +40,16 @@ export function createApp() {
   app.use("/api/analytics", analyticsRoutes);
   app.use("/api/system", systemRoutes);
 
-  // Dev seed endpoint. Registered AFTER requireAuth, so a valid session
-  // token is required — it wipes ventures/follow-ups/tasks/activities.
+  // Dev seed endpoint. Always requires a session token (registered after
+  // requireAuth), AND is disabled in production unless explicitly unlocked
+  // with ALLOW_SEED=true — so demo data can never be created on a public
+  // deployment by accident. Development seeding is unaffected.
   // Do not move this above the auth middleware.
   app.post("/api/seed", async (req, res, next) => {
+    if (isProduction() && process.env.ALLOW_SEED !== "true") {
+      res.status(403).json({ error: "Seed endpoint is disabled in production" });
+      return;
+    }
     try {
       const { Venture } = await import("./models/Venture.js");
       const { FollowUp } = await import("./models/FollowUp.js");
@@ -80,7 +93,10 @@ export function createApp() {
     res.status(404).json({ error: `Not found: ${req.method} ${req.originalUrl}` });
   });
 
-  // Central error handler — every failure returns { error: string } with a predictable status
+  // Central error handler — every failure returns { error: string } with a predictable status.
+  // In production, unexpected failures return a generic message so stack
+  // traces, MongoDB internals, paths, and env values never leak to clients.
+  // Details are logged server-side only.
   app.use((err: any, req: any, res: any, next: any) => {
     if (res.headersSent) return next(err);
     if (err instanceof HttpError) {
@@ -98,7 +114,8 @@ export function createApp() {
       return res.status(400).json({ error: "Invalid JSON body" });
     }
     console.error("[ERROR]", req.method, req.originalUrl, err);
-    res.status(500).json({ error: err?.message || "Internal server error" });
+    const message = isProduction() ? "Internal server error" : (err?.message || "Internal server error");
+    res.status(500).json({ error: message });
   });
 
   return app;

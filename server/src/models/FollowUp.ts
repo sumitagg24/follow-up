@@ -10,4 +10,8 @@ const FollowUpSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+// Every hot query filters by status and ranges/sorts by dueDate:
+// the automation scan, dashboard lists, and ?status= filters.
+FollowUpSchema.index({ status: 1, dueDate: 1 });
+
 export const FollowUp = mongoose.model("FollowUp", FollowUpSchema);

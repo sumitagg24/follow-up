@@ -72,6 +72,13 @@ export async function checkDueFollowUps(triggeredBy: "cron" | "manual" = "cron")
     }
 
     // Duplicate prevention: one reminder per venture per due-day.
+    //
+    // Known MVP limitation: the check-then-insert here is not atomic, so two
+    // automation runs overlapping in time could both pass the findOne before
+    // either inserts, producing a duplicate reminder. In practice the daily
+    // cron and occasional manual runs never overlap, and same-process repeats
+    // are fully suppressed (covered by tests). Accepted over adding a
+    // queue/unique-index infrastructure for a single-instance backend.
     const key = dayKey(fu.dueDate);
     const existing = await Activity.findOne({
       ventureId: v._id,

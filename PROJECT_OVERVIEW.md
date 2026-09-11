@@ -52,7 +52,7 @@ Settings shows exactly what mode the system is in. In-memory database and develo
 
 ## Future improvements
 
-- Authentication and role-based access (currently single-tenant, no auth — MVP assumption)
+- Role-based access and multi-tenancy (currently single-tenant with JWT login — MVP assumption)
 - Pagination for large venture/activity lists (currently capped: 200 activity / 10 dashboard lists)
 - Configurable cron schedule and per-venture reminder timing
 - Email digest (daily summary) in addition to per-follow-up reminders

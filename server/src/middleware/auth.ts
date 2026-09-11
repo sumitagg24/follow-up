@@ -1,14 +1,12 @@
 import type { Request } from "express";
 import jwt from "jsonwebtoken";
-import { HttpError } from "../utils/http.js";
+import { HttpError, isValidObjectId } from "../utils/http.js";
+import { getJwtSecret } from "../utils/env.js";
 import { User, type IUser } from "../models/User.js";
-
-const JWT_SECRET =
-  process.env.JWT_SECRET || "dev-only-insecure-secret-change-me";
 
 /** Sign a 7-day session token for a user id. */
 export function signToken(userId: string): string {
-  return jwt.sign({ sub: userId }, JWT_SECRET, { expiresIn: "7d" });
+  return jwt.sign({ sub: userId }, getJwtSecret(), { expiresIn: "7d" });
 }
 
 /** Express Request extended with the authenticated user (hash removed). */
@@ -25,8 +23,13 @@ export async function requireAuth(req: AuthedRequest, _res: unknown, next: (e?: 
     if (!token) throw new HttpError(401, "Authentication required");
     let payload: any;
     try {
-      payload = jwt.verify(token, JWT_SECRET);
+      payload = jwt.verify(token, getJwtSecret());
     } catch {
+      throw new HttpError(401, "Session expired or invalid — please sign in again");
+    }
+    // A validly-signed token with a missing/malformed subject is still
+    // unauthenticated — never let it fall through to a 400 CastError.
+    if (!payload || typeof payload !== "object" || !isValidObjectId(payload.sub)) {
       throw new HttpError(401, "Session expired or invalid — please sign in again");
     }
     const user = await User.findById(payload.sub).lean();
@@ -46,7 +49,8 @@ export async function optionalAuth(req: AuthedRequest, _res: unknown, next: (e?:
   const token = header.startsWith("Bearer ") ? header.slice(7) : "";
   if (token) {
     try {
-      const payload = jwt.verify(token, JWT_SECRET) as any;
+      const payload = jwt.verify(token, getJwtSecret()) as any;
+      if (!payload || typeof payload !== "object" || !isValidObjectId(payload.sub)) return next();
       const user = await User.findById(payload.sub).lean();
       if (user) {
         const { passwordHash: _hash, ...safe } = user as any;

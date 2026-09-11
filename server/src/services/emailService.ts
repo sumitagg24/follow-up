@@ -1,5 +1,15 @@
 import nodemailer from "nodemailer";
 
+/** Escape user-controlled values interpolated into the HTML email body. */
+function escapeHtml(value: unknown): string {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 function getTransporter() {
   const { SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS } = process.env;
   if (!SMTP_HOST || !SMTP_USER || !SMTP_PASS) return null;
@@ -31,11 +41,11 @@ Please reach out to the founder soon.
 — Founder Follow-Up System`;
 
   const html = `<div style="font-family:system-ui,sans-serif;line-height:1.6">
-  <h2 style="margin:0 0 8px">Founder Follow-up Reminder — ${opts.ventureName}</h2>
-  <p><b>Venture:</b> ${opts.ventureName}<br/>
-  <b>Founder:</b> ${opts.founderName} &lt;${opts.founderEmail}&gt;<br/>
+  <h2 style="margin:0 0 8px">Founder Follow-up Reminder — ${escapeHtml(opts.ventureName)}</h2>
+  <p><b>Venture:</b> ${escapeHtml(opts.ventureName)}<br/>
+  <b>Founder:</b> ${escapeHtml(opts.founderName)} &lt;${escapeHtml(opts.founderEmail)}&gt;<br/>
   <b>Follow-up date:</b> ${opts.followUpDate.toISOString().slice(0,10)}<br/>
-  <b>Status:</b> ${opts.status}</p>
+  <b>Status:</b> ${escapeHtml(opts.status)}</p>
   <p>Please reach out to the founder soon.</p>
   <p style="color:#888;font-size:12px">— Founder Follow-Up System</p></div>`;
 

@@ -38,22 +38,28 @@ npm run build
 | Ventures list | `taskCounts` + `followUp` enrichment |
 | Delete cascade | Venture deletion removes tasks, follow-up, and activities |
 
-`server/src/tests/automation.test.ts` covers the service layer directly (overdue marking, dedupe, reschedule, stats, cascade).
+`server/src/tests/automation.test.ts` covers the service layer directly: overdue marking, same-day dedupe (including cron↔manual consistency), quiet runs with honest zero histories, `followup_overdue`/`reminder_generated` activities, email success / failure / dev-log paths (mocked SMTP transport), and exception propagation (DB failures reject instead of returning zero summaries).
+
+`server/src/tests/auth.test.ts` covers registration, login (including no-enumeration), session restore, password change, and 401 handling for missing/invalid/deleted-account tokens.
+
+`server/src/tests/security.test.ts` covers production guards: JWT fail-fast on missing/weak secrets, `requireEnv`, baseline security headers, seed auth-gating + production 403/`ALLOW_SEED` unlock, and generic production 500s vs verbose development 500s.
 
 ## Manual end-to-end demo workflow
 
-With backend + frontend running and demo data seeded:
+With backend + frontend running:
 
-1. Open Dashboard → verify KPI cards, automation summary
-2. Create a venture → verify 3 auto tasks + follow-up
-3. Open Venture Details → complete a task → verify activity appears
-4. Complete the follow-up → verify activity
-5. Reschedule (via modal) → verify activity + synced date
-6. Automation Center → Run Automation Now → verify result banner + history entry
-7. Run again → verify no duplicate reminders for the same due date
-8. Delete the venture → verify tasks/follow-up/activities are gone
-9. Return to Dashboard → verify statistics updated
-10. Also check: invalid form data (inline field errors), unknown URL (404 page), empty database states, mobile layout (390px), page refresh on every route
+1. Register an account → log in → refresh → verify the session restores
+2. Open Dashboard → verify KPI cards, automation summary
+3. Create a venture → verify 3 auto tasks + follow-up
+4. Open Venture Details → complete a task → verify activity appears
+5. Complete the follow-up → verify activity
+6. Reschedule (via modal) → verify activity + synced date
+7. Automation Center → Run Automation Now → verify result banner + history entry
+8. Run again → verify no duplicate reminders for the same due date
+9. Delete the venture → verify tasks/follow-up/activities are gone
+10. Return to Dashboard → verify statistics updated
+11. Log out → verify protected routes redirect to login; log back in
+12. Also check: invalid form data (inline field errors), unknown URL (404 page), empty database states, mobile layout (390px), page refresh on every route
 
 ## Testing notes
 

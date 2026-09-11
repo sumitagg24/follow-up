@@ -5,11 +5,15 @@ import { MongoMemoryServer } from "mongodb-memory-server";
 import { createApp } from "./app.js";
 import { startCron } from "./jobs/cron.js";
 import { runtime } from "./utils/runtime.js";
+import { isProduction } from "./utils/env.js";
 
 const PORT = Number(process.env.PORT) || 4000;
 
 async function connectDB() {
   const uri = process.env.MONGODB_URI;
+  if (!uri && isProduction()) {
+    throw new Error("[FATAL] MONGODB_URI is not set. Production requires persistent MongoDB — refusing to boot on the in-memory fallback.");
+  }
   if (uri) {
     try {
       await mongoose.connect(uri);
@@ -17,6 +21,11 @@ async function connectDB() {
       console.log("[DB] Connected to MongoDB (persistent)");
       return;
     } catch (e) {
+      // A configured-but-unreachable database in production is an outage, not
+      // a reason to silently switch to throwaway storage. Fail fast.
+      if (isProduction()) {
+        throw new Error(`[FATAL] Could not connect to MongoDB via MONGODB_URI. Refusing to boot in production. ${e}`);
+      }
       console.error("[DB] Failed to connect with MONGODB_URI, falling back to in-memory:", e);
     }
   }

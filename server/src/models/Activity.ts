@@ -12,4 +12,10 @@ const ActivitySchema = new mongoose.Schema(
   { timestamps: { createdAt: true, updatedAt: false } }
 );
 
+// Every feed/history query sorts newest-first by createdAt …
+ActivitySchema.index({ createdAt: -1 });
+// … and the reminder-dedupe check plus venture activity lookups filter by
+// venture + action.
+ActivitySchema.index({ ventureId: 1, action: 1 });
+
 export const Activity = mongoose.model("Activity", ActivitySchema);

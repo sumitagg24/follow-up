@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { describe, it, expect, beforeAll, afterAll, vi, type Mock } from "vitest";
 import mongoose from "mongoose";
 import { MongoMemoryServer } from "mongodb-memory-server";
 import { Venture } from "../models/Venture.js";
@@ -6,6 +6,35 @@ import { FollowUp } from "../models/FollowUp.js";
 import { Task } from "../models/Task.js";
 import { Activity } from "../models/Activity.js";
 import { checkDueFollowUps } from "../services/automationService.js";
+import nodemailer from "nodemailer";
+
+// Mock the SMTP transport so email success/failure paths are deterministic
+// without a real mail server. Other test files are unaffected (per-file
+// module registry).
+vi.mock("nodemailer", () => ({ default: { createTransport: vi.fn() } }));
+
+function mockSmtpTransport(sendMail: (...args: any[]) => Promise<unknown>) {
+  (nodemailer.createTransport as unknown as Mock).mockReturnValue({ sendMail });
+}
+
+function setSmtpEnv() {
+  process.env.SMTP_HOST = "smtp.test.local";
+  process.env.SMTP_USER = "tester";
+  process.env.SMTP_PASS = "s3cret";
+}
+
+function clearSmtpEnv() {
+  delete process.env.SMTP_HOST;
+  delete process.env.SMTP_USER;
+  delete process.env.SMTP_PASS;
+}
+
+async function wipeAll() {
+  await Venture.deleteMany({});
+  await FollowUp.deleteMany({});
+  await Task.deleteMany({});
+  await Activity.deleteMany({});
+}
 
 let mongod: MongoMemoryServer;
 
@@ -105,5 +134,106 @@ describe("delete cascade", () => {
     await Venture.findByIdAndDelete(vid);
     expect(await Venture.findById(vid)).toBeNull();
     expect(await FollowUp.find({ ventureId: vid }).then(r=>r.length)).toBe(0);
+  });
+});
+
+describe("no overdue → quiet run", () => {
+  it("reports honest zeros and still records run history", async () => {
+    await wipeAll();
+    await createVentureWithFollowUp(5, "pending"); // due in the future
+    const res = await checkDueFollowUps("manual");
+    expect(res.checked).toBe(1);
+    expect(res.overdueFound).toBe(0);
+    expect(res.remindersGenerated).toBe(0);
+    expect(res.emailsSent).toBe(0);
+    const hist = await Activity.findOne({ action: "automation_run" }).sort({ createdAt: -1 }).lean() as any;
+    expect(hist?.meta?.triggeredBy).toBe("manual");
+    expect(hist?.meta?.remindersGenerated).toBe(0);
+  });
+});
+
+describe("newly overdue follow-up", () => {
+  it("flips status and logs overdue + reminder activities", async () => {
+    await wipeAll();
+    const { v, fu } = await createVentureWithFollowUp(-3, "pending");
+    const res = await checkDueFollowUps("manual");
+    expect(res.overdueFound).toBe(1);
+    expect(res.remindersGenerated).toBe(1);
+    const updated = await FollowUp.findById(fu._id);
+    expect(updated?.status).toBe("overdue");
+    expect(await Activity.countDocuments({ ventureId: v._id, action: "followup_overdue" })).toBe(1);
+    expect(await Activity.countDocuments({ ventureId: v._id, action: "reminder_generated" })).toBe(1);
+  });
+});
+
+describe("cron and manual triggers", () => {
+  it("share one service and dedupe reminders across triggers", async () => {
+    await wipeAll();
+    await createVentureWithFollowUp(0, "pending");
+    const r1 = await checkDueFollowUps("cron");
+    const r2 = await checkDueFollowUps("manual");
+    expect(r1.remindersGenerated).toBe(1);
+    expect(r2.remindersGenerated).toBe(0);
+    const runs = await Activity.find({ action: "automation_run" }).sort({ createdAt: 1 }).lean() as any[];
+    expect(runs.map((r) => r.meta?.triggeredBy)).toEqual(["cron", "manual"]);
+  });
+});
+
+describe("email delivery paths", () => {
+  it("counts emailsSent only on successful SMTP delivery", async () => {
+    await wipeAll();
+    setSmtpEnv();
+    try {
+      mockSmtpTransport(async () => ({}));
+      await createVentureWithFollowUp(0, "pending");
+      const res = await checkDueFollowUps("manual");
+      expect(res.remindersGenerated).toBe(1);
+      expect(res.emailsSent).toBe(1);
+      expect(await Activity.countDocuments({ action: "reminder_email_sent" })).toBe(1);
+      expect(await Activity.countDocuments({ action: "reminder_email_dev" })).toBe(0);
+    } finally {
+      clearSmtpEnv();
+    }
+  });
+
+  it("records reminder_email_failed when SMTP delivery throws", async () => {
+    await wipeAll();
+    setSmtpEnv();
+    try {
+      mockSmtpTransport(async () => { throw new Error("relay down"); });
+      await createVentureWithFollowUp(0, "pending");
+      const res = await checkDueFollowUps("manual");
+      expect(res.remindersGenerated).toBe(1);
+      expect(res.emailsSent).toBe(0);
+      expect(await Activity.countDocuments({ action: "reminder_email_failed" })).toBe(1);
+      expect(await Activity.countDocuments({ action: "reminder_email_sent" })).toBe(0);
+    } finally {
+      clearSmtpEnv();
+    }
+  });
+
+  it("dev-logs (never reports delivered) when SMTP is not configured", async () => {
+    await wipeAll();
+    clearSmtpEnv();
+    await createVentureWithFollowUp(0, "pending");
+    const res = await checkDueFollowUps("manual");
+    expect(res.remindersGenerated).toBe(1);
+    expect(res.emailsSent).toBe(0);
+    expect(await Activity.countDocuments({ action: "reminder_email_dev" })).toBe(1);
+    expect(await Activity.countDocuments({ action: "reminder_email_sent" })).toBe(0);
+  });
+});
+
+describe("automation exception", () => {
+  it("propagates DB failures instead of returning a zero-valued summary", async () => {
+    // Simulate the query failing at execution time (after .populate chaining).
+    const spy = vi.spyOn(FollowUp, "find").mockReturnValueOnce({
+      populate: () => Promise.reject(new Error("db down")),
+    } as any);
+    try {
+      await expect(checkDueFollowUps("manual")).rejects.toThrow("db down");
+    } finally {
+      spy.mockRestore();
+    }
   });
 });
