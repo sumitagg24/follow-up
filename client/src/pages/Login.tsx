@@ -243,17 +243,7 @@ export function Login({ onSignIn }: LoginProps) {
               <br />
               No data is saved or transmitted.
             </p>
-          </div>
-
-          {/* Footer note */}
-          <div className="mt-8 p-4 bg-brand-100 rounded-xl border border-brand-200">
-            <p className="text-xs text-brand-600 leading-relaxed">
-              <strong className="font-medium">Prototype authentication.</strong>
-              <br />
-              This is a demo application. The Continue as Demo button creates a local session only — no real authentication, passwords, or user data is involved.
-            </p>
-          </div>
-        </div>
+          </div>        </div>
       </div>
     </div>
   );
