@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
 import { PageHeader } from "../components/Card";
-import { Card } from "../components/Card";
 import { SkeletonCard } from "../components/Skeleton";
 import { usePageTitle } from "../hooks/usePageTitle";
 import { Database, Mail, Clock3, ShieldCheck, AlertTriangle } from "lucide-react";
@@ -163,35 +162,6 @@ export function Settings() {
               status="ok"
             />
           </div>
-
-          {/* Environment variables reference */}
-          <Card padding="md">
-            <div className="flex items-center gap-2.5 mb-3">
-              <div className="w-8 h-8 rounded-xl bg-brand-100 text-brand-600 grid place-items-center shrink-0">
-                <Database size={15} />
-              </div>
-              <h3 className="text-[15px] font-bold text-brand-900 tracking-tight">Environment variables</h3>
-            </div>
-            <p className="text-[13px] text-brand-500 mb-4">
-              Set in <code className="bg-brand-100 px-1.5 py-0.5 rounded-md text-xs font-mono text-brand-900">server/.env</code> (see{" "}
-              <code className="bg-brand-100 px-1.5 py-0.5 rounded-md text-xs font-mono text-brand-900">server/.env.example</code>).
-            </p>
-            <div className="space-y-3">
-              {[
-                ["MONGODB_URI", "Atlas or local MongoDB connection string for persistence"],
-                ["PORT", "API port (default 4000)"],
-                ["CLIENT_URL", "Allowed CORS origin (default http://localhost:5173)"],
-                ["SMTP_HOST / SMTP_PORT / SMTP_USER / SMTP_PASS / SMTP_FROM", "Enable real reminder email delivery"],
-              ].map(([key, desc]) => (
-                <div key={key} className="flex items-start gap-2.5">
-                  <code className="bg-brand-900 text-white px-2 py-1 rounded-lg text-[11px] font-mono w-fit shrink-0">
-                    {key}
-                  </code>
-                  <span className="text-xs text-brand-500 leading-relaxed pt-0.5">{desc}</span>
-                </div>
-              ))}
-            </div>
-          </Card>
         </>
       )}
     </div>
