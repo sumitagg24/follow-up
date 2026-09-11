@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
-import { Header } from "../components/Header";
 import { PageHeader } from "../components/Card";
 import { EmptyState } from "../components/EmptyState";
 import { SkeletonCard } from "../components/Skeleton";
@@ -31,12 +30,12 @@ function BarChart({
 
   return (
     <Card padding="md">
-      <h3 className="font-semibold text-brand-900 mb-1">{title}</h3>
-      <p className="text-xs text-brand-500 mb-4">
+      <h3 className="text-[15px] font-bold text-brand-900 tracking-tight mb-0.5">{title}</h3>
+      <p className="text-xs text-brand-400 mb-4 tabular-nums">
         {total === 0 ? "No data yet" : `${total} total`}
       </p>
       {total === 0 ? (
-        <p className="text-sm text-brand-400 py-4">
+        <p className="text-[13px] text-brand-400 py-4">
           This chart fills in as data accumulates.
         </p>
       ) : (
@@ -44,10 +43,10 @@ function BarChart({
           {data.map((d) => (
             <div key={d._id}>
               <div className="flex justify-between items-center mb-1.5">
-                <span className="text-sm text-brand-700 capitalize">{d._id}</span>
-                <span className="text-sm font-semibold text-brand-900">{d.count}</span>
+                <span className="text-[13px] font-medium text-brand-600 capitalize">{d._id}</span>
+                <span className="text-[13px] font-bold text-brand-900 tabular-nums">{d.count}</span>
               </div>
-              <div className="w-full h-2.5 rounded-full bg-brand-100 overflow-hidden">
+              <div className="w-full h-2 rounded-full bg-brand-100 overflow-hidden">
                 <div
                   className={`h-full rounded-full transition-all duration-500 ${colors[d._id] ?? "bg-brand-400"}`}
                   style={{ width: `${(d.count / max) * 100}%` }}
@@ -72,14 +71,15 @@ function ActivityVolumeChart({
 
   return (
     <Card padding="md" className="lg:col-span-2">
-      <div className="flex items-center justify-between mb-1">
-        <h3 className="font-semibold text-brand-900">Activity Volume</h3>
+      <div className="flex items-center justify-between mb-0.5">
+        <h3 className="text-[15px] font-bold text-brand-900 tracking-tight">Activity volume</h3>
+        <span className="slaky-pill tabular-nums">{total} events</span>
       </div>
-      <p className="text-xs text-brand-500 mb-4">
-        Last 14 days · {total} total events
+      <p className="text-xs text-brand-400 mb-4">
+        Last 14 days
       </p>
       {total === 0 ? (
-        <p className="text-sm text-brand-400 py-4">
+        <p className="text-[13px] text-brand-400 py-4">
           No activity in the last two weeks.
         </p>
       ) : (
@@ -88,7 +88,7 @@ function ActivityVolumeChart({
             <div key={i} className="flex-1 flex flex-col items-center gap-1.5 min-w-0">
               <div
                 className={`
-                  w-full rounded-t-md transition-all duration-300
+                  w-full rounded-t-full transition-all duration-300
                   ${d.count > 0 ? "bg-brand-900" : "bg-brand-100"}
                 `}
                 style={{ height: `${Math.max((d.count / max) * 100, 4)}%` }}
@@ -96,7 +96,7 @@ function ActivityVolumeChart({
                 role="img"
                 aria-label={`${d.date}: ${d.count} events`}
               />
-              <span className="text-[9px] text-brand-400 truncate w-full text-center">
+              <span className="text-[9px] text-brand-400 truncate w-full text-center tabular-nums">
                 {d.date.slice(5)}
               </span>
             </div>
@@ -108,7 +108,7 @@ function ActivityVolumeChart({
 }
 
 export function Analytics() {
-  usePageTitle("Analytics");
+  usePageTitle("Leaderboard");
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -124,33 +124,33 @@ export function Analytics() {
   const totalActivity = data ? data.activityVolume.reduce((s, d) => s + d.count, 0) : 0;
 
   const ventureColors: Record<string, string> = {
-    New: "bg-brand-400",
-    Evaluation: "bg-accent-400",
+    New: "bg-brand-300",
+    Evaluation: "bg-brand-500",
     Review: "bg-blue-500",
-    Active: "bg-emerald-500",
-    Closed: "bg-zinc-400",
+    Active: "bg-brand-900",
+    Closed: "bg-brand-200",
   };
 
   const fuColors: Record<string, string> = {
-    pending: "bg-accent-400",
+    pending: "bg-brand-400",
     overdue: "bg-red-500",
     completed: "bg-emerald-500",
   };
 
   const taskColors: Record<string, string> = {
-    pending: "bg-accent-400",
+    pending: "bg-brand-400",
     completed: "bg-emerald-500",
   };
 
   return (
     <div className="p-4 lg:p-6 max-w-6xl mx-auto">
       <PageHeader
-        title="Analytics"
-        subtitle="Live aggregates from your operational data"
+        title="Leaderboard"
+        subtitle="Live rankings and aggregates — computed from real records, never a screenshot"
       />
 
       {loading ? (
-        <div className="grid lg:grid-cols-2 gap-4">
+        <div className="grid lg:grid-cols-2 gap-3 sm:gap-4">
           {Array.from({ length: 4 }).map((_, i) => (
             <SkeletonCard key={i} lines={3} />
           ))}
@@ -159,27 +159,27 @@ export function Analytics() {
         <div className="bg-red-50 border border-red-200 rounded-2xl p-4 text-sm text-red-700">
           {error}
         </div>
-      ) : !data || totalActivity === 0 ? (
+      ) : !data ? (
         <EmptyState
           icon={BarChart3}
-          title="Analytics will populate as activity accumulates"
+          title="Leaderboard will populate as data accumulates"
           description="Charts are computed from real venture, follow-up, task, and activity records. Create a venture or run the automation to see data appear."
         />
       ) : (
-        <div className="grid lg:grid-cols-2 gap-4">
+        <div className="grid lg:grid-cols-2 gap-3 sm:gap-4">
           <BarChart
-            title="Ventures by Status"
+            title="Ventures by status"
             data={data.venturesByStatus}
             colors={ventureColors}
           />
           <BarChart
-            title="Follow-up Outcomes"
+            title="Follow-up outcomes"
             data={data.followUpOutcomes}
             colors={fuColors}
           />
           <ActivityVolumeChart data={data.activityVolume} total={totalActivity} />
           <BarChart
-            title="Task Completion"
+            title="Task completion"
             data={data.taskStats}
             colors={taskColors}
           />

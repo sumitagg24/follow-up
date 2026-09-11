@@ -53,7 +53,7 @@ export function Modal({ open, onClose, title, children, size = "md", icon, foote
 
   const iconStyles = {
     danger: { bg: "bg-red-50", color: "text-red-600", accent: "border-red-200" },
-    warning: { bg: "bg-accent-50", color: "text-accent-700", accent: "border-accent-200" },
+    warning: { bg: "bg-brand-100", color: "text-brand-700", accent: "border-brand-200" },
     info: { bg: "bg-blue-50", color: "text-blue-700", accent: "border-blue-200" },
   };
 
@@ -62,7 +62,7 @@ export function Modal({ open, onClose, title, children, size = "md", icon, foote
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="presentation">
       <div
-        className="absolute inset-0 bg-black/40 animate-fade-in"
+        className="absolute inset-0 bg-black/45 backdrop-blur-[2px] animate-fade-in"
         onClick={onClose}
         aria-hidden="true"
       />
@@ -72,13 +72,13 @@ export function Modal({ open, onClose, title, children, size = "md", icon, foote
         aria-modal="true"
         aria-labelledby="modal-title"
         className={`
-          relative bg-white rounded-2xl shadow-lg shadow-black/5
+          relative bg-white rounded-2xl border border-brand-200 shadow-pop
           w-full ${sizeClasses[size]}
           animate-scale-in
         `}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-brand-100">
+        <div className="flex items-center justify-between px-5 sm:px-6 pt-5 pb-4 border-b border-brand-100">
           <div className="flex items-center gap-3">
             {currentIconStyle && (
               <div className={`w-8 h-8 rounded-lg ${currentIconStyle.bg} ${currentIconStyle.color} grid place-items-center shrink-0`}>
@@ -87,27 +87,27 @@ export function Modal({ open, onClose, title, children, size = "md", icon, foote
                 {icon === "info" && <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1.5a6.5 6.5 0 100 13 6.5 6.5 0 000-13zM7.5 4.5a.5.5 0 01.5.5v5a.5.5 0 01-1 0V5a.5.5 0 01.5-.5zm-.5 2a.5.5 0 01.5.5v3a.5.5 0 01-1 0V6.5a.5.5 0 01.5-.5z"/></svg>}
               </div>
             )}
-            <h2 id="modal-title" className={`text-base font-semibold ${currentIconStyle?.color || "text-brand-900"}`}>
+            <h2 id="modal-title" className={`text-[15px] font-bold tracking-tight ${currentIconStyle?.color || "text-brand-900"}`}>
               {title}
             </h2>
           </div>
           <button
             onClick={onClose}
             aria-label="Close dialog"
-            className="p-1.5 rounded-lg text-brand-400 hover:text-brand-600 hover:bg-brand-100 transition-colors"
+            className="p-1.5 rounded-full text-brand-400 hover:text-brand-900 hover:bg-brand-100 transition-colors"
           >
             <X size={18} />
           </button>
         </div>
 
         {/* Body */}
-        <div className="px-6 py-4">
+        <div className="px-5 sm:px-6 py-4">
           {children}
         </div>
 
         {/* Footer */}
         {footer && (
-          <div className="flex items-center justify-end gap-3 px-6 pb-6 pt-4 border-t border-brand-100">
+          <div className="flex items-center justify-end gap-2.5 px-5 sm:px-6 pb-5 pt-4 border-t border-brand-100">
             {footer}
           </div>
         )}

@@ -16,6 +16,7 @@ import { useToast } from "./Toast";
 
 interface SidebarProps {
   onSignOut?: () => void;
+  user?: { name: string; email: string } | null;
 }
 
 interface NavSection {
@@ -28,22 +29,22 @@ const navSections: NavSection[] = [
     label: "Operations",
     links: [
       { to: "/", label: "Dashboard", icon: LayoutDashboard, end: true },
-      { to: "/ventures", label: "Ventures", icon: Building2 },
+      { to: "/ventures", label: "Directory", icon: Building2 },
       { to: "/tasks", label: "Tasks", icon: ListTodo },
-      { to: "/activity", label: "Activity", icon: Bell },
+      { to: "/activity", label: "Feed", icon: Bell },
     ],
   },
   {
     label: "Intelligence",
     links: [
       { to: "/automation", label: "Automation", icon: Bot },
-      { to: "/analytics", label: "Analytics", icon: TrendingUp },
+      { to: "/analytics", label: "Leaderboard", icon: TrendingUp },
       { to: "/settings", label: "Settings", icon: Settings },
     ],
   },
 ];
 
-export function Sidebar({ onSignOut }: SidebarProps) {
+export function Sidebar({ onSignOut, user }: SidebarProps) {
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
   const toast = useToast();
@@ -60,7 +61,7 @@ export function Sidebar({ onSignOut }: SidebarProps) {
   function handleLogout() {
     setOpen(false);
     onSignOut?.();
-    toast.push("Signed out — demo session ended", "info");
+    toast.push("Signed out", "info");
     navigate("/login");
   }
 
@@ -72,7 +73,7 @@ export function Sidebar({ onSignOut }: SidebarProps) {
         aria-expanded={open}
         aria-controls="app-sidebar"
         aria-label={open ? "Close navigation" : "Open navigation"}
-        className="lg:hidden fixed top-4 left-4 z-50 p-2.5 bg-white rounded-xl shadow-sm border border-brand-200 text-brand-700 transition-all"
+        className="lg:hidden fixed top-3.5 left-4 z-50 p-2 bg-white rounded-full shadow-card border border-brand-200 text-brand-700"
       >
         {open ? <X size={18} /> : <Menu size={18} />}
       </button>
@@ -80,7 +81,7 @@ export function Sidebar({ onSignOut }: SidebarProps) {
       {/* Mobile overlay */}
       {open && (
         <div
-          className="fixed inset-0 bg-brand-900/40 z-40 lg:hidden animate-fade-in"
+          className="fixed inset-0 bg-black/40 backdrop-blur-[2px] z-40 lg:hidden animate-fade-in"
           onClick={() => setOpen(false)}
           aria-hidden="true"
         />
@@ -90,34 +91,34 @@ export function Sidebar({ onSignOut }: SidebarProps) {
       <aside
         id="app-sidebar"
         className={`
-          fixed lg:static inset-y-0 left-0 z-50 w-64
-          bg-white border-r border-brand-100
-          flex flex-col
+          fixed lg:sticky top-0 inset-y-0 left-0 z-50 w-[248px] h-screen
+          bg-white border-r border-brand-200
+          flex flex-col shrink-0
           transition-transform duration-200 ease-out
           lg:translate-x-0
           ${open ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
         `}
       >
-        {/* Brand */}
-        <div className="flex items-center gap-3 px-5 py-5 border-b border-brand-100">
-          <div className="w-9 h-9 rounded-xl bg-brand-900 text-white grid place-items-center font-semibold text-sm relative">
-            <span className="absolute -right-0.5 -bottom-0.5 w-2.5 h-2.5 rounded-full bg-accent-400 ring-2 ring-white" />
-            <span className="text-xs leading-none">F</span>
+        {/* Brand — Slaky-style wordmark */}
+        <div className="flex items-center gap-2.5 px-4 py-4 border-b border-brand-100">
+          <div className="w-8 h-8 rounded-lg bg-brand-900 text-white grid place-items-center font-bold text-[13px] tracking-tight shrink-0">
+            F
           </div>
-          <div>
-            <div className="font-semibold text-sm text-brand-900 leading-none">Founder Follow-Up</div>
-            <div className="text-[10px] text-brand-400 leading-tight mt-0.5">Venture Studio OS</div>
+          <div className="min-w-0">
+            <div className="font-bold text-[14px] text-brand-900 leading-none tracking-tight">Follow-Up</div>
+            <div className="text-[11px] text-brand-400 leading-tight mt-1">Venture Studio OS</div>
           </div>
+          <span className="ml-auto slaky-pill !py-0 hidden xl:inline-flex">v1.0</span>
         </div>
 
         {/* Navigation */}
         <nav aria-label="Main navigation" className="flex-1 overflow-y-auto px-3 py-4 space-y-5">
           {navSections.map((section) => (
             <div key={section.label}>
-              <p className="px-3 mb-2 text-[10px] font-semibold uppercase tracking-[0.15em] text-brand-400">
+              <p className="px-3 mb-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-brand-400">
                 {section.label}
               </p>
-              <div className="space-y-1">
+              <div className="space-y-0.5">
                 {section.links.map((link) => (
                   <NavLink
                     key={link.to}
@@ -130,13 +131,11 @@ export function Sidebar({ onSignOut }: SidebarProps) {
                     }}
                     className={({ isActive }) =>
                       isActive
-                        ? "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 relative group bg-brand-900 text-white"
-                        : "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 relative group text-brand-600 hover:bg-brand-50 hover:text-brand-900"
+                        ? "flex items-center gap-2.5 px-3 py-2 rounded-full text-[13px] font-semibold bg-brand-900 text-white"
+                        : "flex items-center gap-2.5 px-3 py-2 rounded-full text-[13px] font-medium text-brand-500 hover:bg-brand-100 hover:text-brand-900 transition-colors"
                     }
                   >
-                    <span className="relative">
-                      <link.icon size={17} />
-                    </span>
+                    <link.icon size={16} strokeWidth={2} />
                     {link.label}
                   </NavLink>
                 ))}
@@ -144,27 +143,35 @@ export function Sidebar({ onSignOut }: SidebarProps) {
             </div>
           ))}
 
-          {/* Demo user section */}
-          <div className="pt-4 border-t border-brand-100 mt-2">
-            <div className="px-3 py-2 mb-2">
-              <p className="text-xs font-medium text-brand-900 truncate">Demo User</p>
-              <p className="text-[10px] text-brand-400 truncate">demo@founderfollowup.demo</p>
+          {/* User section */}
+          <div className="pt-3 mt-1">
+            <div className="rounded-2xl border border-brand-200 bg-brand-50 p-3">
+              <div className="flex items-center gap-2.5 mb-2.5">
+                <div className="w-8 h-8 rounded-full bg-brand-900 text-white grid place-items-center text-xs font-bold shrink-0" aria-hidden="true">
+                  {(user?.name || "U").trim().charAt(0).toUpperCase()}
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[13px] font-semibold text-brand-900 truncate tracking-tight">{user?.name || "Signed in"}</p>
+                  <p className="text-[11px] text-brand-400 truncate">{user?.email || ""}</p>
+                </div>
+              </div>
+              <button
+                onClick={handleLogout}
+                className="flex items-center justify-center gap-2 w-full px-3 py-2 rounded-full text-[13px] font-semibold bg-white border border-brand-200 text-brand-600 hover:border-brand-400 hover:text-brand-900 transition-colors"
+                aria-label="Sign out"
+              >
+                <LogOut size={14} />
+                Sign out
+              </button>
             </div>
-            <button
-              onClick={handleLogout}
-              className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-sm text-brand-500 hover:bg-brand-50 hover:text-red-600 transition-colors"
-              aria-label="Sign out of demo session"
-            >
-              <LogOut size={16} />
-              Sign out
-            </button>
           </div>
         </nav>
 
-        {/* Footer */}
+        {/* Footer — Slaky trust line */}
         <div className="px-4 py-3 border-t border-brand-100">
-          <p className="text-[10px] text-brand-400 text-center">
-            Founder Follow-Up · v1.0
+          <p className="text-[11px] text-brand-400 text-center flex items-center justify-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />
+            All systems verified · live
           </p>
         </div>
       </aside>

@@ -36,6 +36,26 @@ Honest runtime status. →
 
 ---
 
+## Auth
+
+Bearer-token auth (`Authorization: Bearer <token>`, 7-day JWT). Only `register`, `login`, and `GET /api/health` are public — every other `/api/*` route (including `POST /api/seed` and the JSON 404 fallback) requires a token. Expired/invalid tokens → `401`.
+
+### `POST /api/auth/register`
+Body: `{ name (≤80 chars), email, password (≥8 chars) }`. Email is lowercased; duplicates (including concurrent races) → `400`.
+→ `201 { token, user: { name, email } }` (password hash never serialized).
+
+### `POST /api/auth/login`
+Body: `{ email, password }`. Unknown email and wrong password return the same generic `400 { "error": "Invalid email or password" }` (no account enumeration).
+→ `200 { token, user }`.
+
+### `GET /api/auth/me`
+Bearer token → `200 { user: { name, email } }`.
+
+### `PUT /api/auth/password`
+Bearer token. Body: `{ currentPassword, newPassword (≥8 chars) }`. Wrong current password → `400`. → `{ ok: true }`.
+
+---
+
 ## Ventures
 
 ### `GET /api/ventures`
@@ -154,7 +174,7 @@ Real-time aggregates (no caching, no sampling):
 ## Dev utilities
 
 ### `POST /api/seed`
-Wipes all collections and inserts 6 demo ventures (mixed due dates/statuses) with tasks and activities. **Unauthenticated — do not expose publicly.**
+Requires a session token (registered after the auth middleware). Wipes ventures, follow-ups, tasks, and activities (users are spared) and inserts 6 demo ventures (mixed due dates/statuses) with tasks and activities. **Destructive — dev use only, do not expose publicly.**
 
 ---
 

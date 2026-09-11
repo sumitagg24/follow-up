@@ -9,6 +9,8 @@ import dashboardRoutes from "./routes/dashboard.js";
 import automationRoutes from "./routes/automation.js";
 import analyticsRoutes from "./routes/analytics.js";
 import systemRoutes from "./routes/system.js";
+import authRoutes from "./routes/auth.js";
+import { requireAuth } from "./middleware/auth.js";
 import { HttpError } from "./utils/http.js";
 
 export function createApp() {
@@ -18,16 +20,22 @@ export function createApp() {
 
   app.get("/api/health", (req, res) => res.json({ ok: true, time: new Date().toISOString() }));
 
+  // Auth endpoints are public; everything below /api requires a session token.
+  app.use("/api/auth", authRoutes);
+  app.use(requireAuth);
+
   app.use("/api/ventures", ventureRoutes);
   app.use("/api/followups", followUpRoutes);
   app.use("/api/tasks", taskRoutes);
   app.use("/api/activity", activityRoutes);
   app.use("/api/dashboard", dashboardRoutes);
   app.use("/api/automation", automationRoutes);
-app.use("/api/analytics", analyticsRoutes);
-app.use("/api/system", systemRoutes);
+  app.use("/api/analytics", analyticsRoutes);
+  app.use("/api/system", systemRoutes);
 
-  // dev seed endpoint (no auth — MVP)
+  // Dev seed endpoint. Registered AFTER requireAuth, so a valid session
+  // token is required — it wipes ventures/follow-ups/tasks/activities.
+  // Do not move this above the auth middleware.
   app.post("/api/seed", async (req, res, next) => {
     try {
       const { Venture } = await import("./models/Venture.js");

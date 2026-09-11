@@ -1,44 +1,55 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { Eye, EyeOff, Mail, Lock, ArrowRight, Building2, Bot, TrendingUp } from "lucide-react";
+import { Eye, EyeOff, Mail, Lock, User as UserIcon, ArrowRight, Building2, Bot, TrendingUp } from "lucide-react";
 import { Button } from "../components/Button";
 import { Input } from "../components/Input";
 import { api, storeToken } from "../api/client";
 import { usePageTitle } from "../hooks/usePageTitle";
 
-interface LoginProps {
-  /** Receives the session token, the user object, and the remember-me flag. */
+interface SignupProps {
   onSignIn: (token: string, user: { name: string; email: string }, remember: boolean) => void;
 }
 
-export function Login({ onSignIn }: LoginProps) {
-  usePageTitle("Sign in");
+export function Signup({ onSignIn }: SignupProps) {
+  usePageTitle("Create account");
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [remember, setRemember] = useState(false);
   const [loading, setLoading] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
+  function validate(): boolean {
+    const errors: Record<string, string> = {};
+    if (!name.trim()) errors.name = "Please enter your name";
+    if (!email.trim()) errors.email = "Please enter your email";
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) errors.email = "Enter a valid email address";
+    if (!password) errors.password = "Please choose a password";
+    else if (password.length < 8) errors.password = "Password must be at least 8 characters";
+    if (confirm !== password) errors.confirm = "Passwords do not match";
+    setFieldErrors(errors);
+    return Object.keys(errors).length === 0;
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const errors: Record<string, string> = {};
-    if (!email.trim()) errors.email = "Please enter your email";
-    if (!password.trim()) errors.password = "Please enter your password";
-    if (Object.keys(errors).length) {
-      setFieldErrors(errors);
-      return;
-    }
-    setFieldErrors({});
     setFormError(null);
+    if (!validate()) return;
     setLoading(true);
     try {
-      const { token, user } = await api.login({ email: email.trim(), password });
-      storeToken(token, remember);
-      onSignIn(token, { name: user.name, email: user.email }, remember);
+      const { token, user } = await api.register({
+        name: name.trim(),
+        email: email.trim(),
+        password,
+      });
+      storeToken(token, true);
+      onSignIn(token, { name: user.name, email: user.email }, true);
     } catch (err: any) {
-      setFormError(err.message || "Unable to sign in — please try again");
+      // Surface validation details from the API when present
+      if (err.details?.length) setFormError(err.details.join(" · "));
+      else setFormError(err.message || "Unable to create account — please try again");
     } finally {
       setLoading(false);
     }
@@ -57,12 +68,12 @@ export function Login({ onSignIn }: LoginProps) {
             <div className="text-[11px] text-brand-400 mt-0.5">Venture Studio OS</div>
           </div>
           <div className="ml-auto flex items-center gap-2 text-[13px]">
-            <span className="hidden sm:inline text-brand-400">New here?</span>
+            <span className="hidden sm:inline text-brand-400">Have an account?</span>
             <Link
-              to="/signup"
-              className="px-4 py-2 rounded-full border border-brand-200 bg-white font-semibold text-brand-900 hover:border-brand-900 transition-colors"
+              to="/login"
+              className="px-4 py-2 rounded-full bg-brand-900 font-semibold text-white hover:bg-brand-800 transition-colors"
             >
-              Create account
+              Sign in
             </Link>
           </div>
         </div>
@@ -73,35 +84,46 @@ export function Login({ onSignIn }: LoginProps) {
           <div className="text-center mb-6">
             <p className="inline-flex items-center gap-1.5 rounded-full border border-brand-200 bg-white px-3 py-1 text-[11px] font-semibold text-brand-600 mb-3">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" aria-hidden="true" />
-              Verified ops · never a spreadsheet
+              Set up in under a minute
             </p>
-            <h1 className="text-3xl font-bold text-brand-900 tracking-tightest">Welcome back</h1>
-            <p className="text-sm text-brand-500 mt-2">Sign in to your venture studio workspace.</p>
+            <h1 className="text-3xl font-bold text-brand-900 tracking-tightest">Create your account</h1>
+            <p className="text-sm text-brand-500 mt-2">Start tracking ventures, follow-ups, and reminders.</p>
           </div>
 
           <div className="slaky-card p-6 sm:p-7">
             <form onSubmit={handleSubmit} noValidate className="space-y-4">
               <Input
+                label="Full name"
+                placeholder="Jane Operator"
+                icon={<UserIcon size={16} />}
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                error={fieldErrors.name}
+                autoComplete="name"
+                autoFocus
+              />
+
+              <Input
                 type="email"
-                label="Email"
+                label="Work email"
                 placeholder="you@founderstudio.com"
                 icon={<Mail size={16} />}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 error={fieldErrors.email}
                 autoComplete="email"
-                autoFocus
               />
 
               <Input
                 type={showPassword ? "text" : "password"}
                 label="Password"
-                placeholder="Enter your password"
+                placeholder="At least 8 characters"
+                hint="Use 8+ characters — a mix of letters, numbers, and symbols is best."
                 icon={<Lock size={16} />}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 error={fieldErrors.password}
-                autoComplete="current-password"
+                autoComplete="new-password"
                 trailing={
                   <button
                     type="button"
@@ -114,35 +136,28 @@ export function Login({ onSignIn }: LoginProps) {
                 }
               />
 
+              <Input
+                type={showPassword ? "text" : "password"}
+                label="Confirm password"
+                placeholder="Re-enter your password"
+                icon={<Lock size={16} />}
+                value={confirm}
+                onChange={(e) => setConfirm(e.target.value)}
+                error={fieldErrors.confirm}
+                autoComplete="new-password"
+              />
+
               {formError && (
                 <p
-                  className="text-xs font-medium text-red-600 flex items-center gap-1.5 bg-red-50 border border-red-200 rounded-xl px-3 py-2.5"
+                  className="text-xs font-medium text-red-600 bg-red-50 border border-red-200 rounded-xl px-3 py-2.5"
                   role="alert"
                 >
                   {formError}
                 </p>
               )}
 
-              <div className="flex items-center justify-between text-sm">
-                <label className="flex items-center gap-2 cursor-pointer text-brand-600 hover:text-brand-900 transition-colors">
-                  <input
-                    type="checkbox"
-                    checked={remember}
-                    onChange={(e) => setRemember(e.target.checked)}
-                    className="w-4 h-4 rounded border-brand-300 text-brand-900 focus:ring-brand-900 accent-black"
-                  />
-                  <span className="text-xs font-medium">Remember me</span>
-                </label>
-                <a
-                  href="mailto:support@founderfollowup.com?subject=Password%20reset%20request"
-                  className="text-brand-900 hover:text-brand-500 text-xs font-semibold"
-                >
-                  Forgot password?
-                </a>
-              </div>
-
               <Button type="submit" size="lg" iconRight={<ArrowRight size={16} />} className="w-full" loading={loading}>
-                {loading ? "Signing in…" : "Sign in"}
+                {loading ? "Creating account…" : "Create account"}
               </Button>
             </form>
           </div>
@@ -163,9 +178,9 @@ export function Login({ onSignIn }: LoginProps) {
           </div>
 
           <p className="mt-6 text-xs text-center text-brand-400">
-            New to Founder Follow-Up?{" "}
-            <Link to="/signup" className="text-brand-900 hover:text-brand-600 font-semibold">
-              Create an account
+            Already have an account?{" "}
+            <Link to="/login" className="text-brand-900 hover:text-brand-600 font-semibold">
+              Sign in
             </Link>
           </p>
         </div>

@@ -5,16 +5,18 @@ interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   error?: string;
   hint?: string;
   icon?: React.ReactNode;
+  /** Element rendered inside the field, aligned right (e.g. a show-password toggle) */
+  trailing?: React.ReactNode;
 }
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(
-  ({ label, error, hint, icon, className = "", id, ...props }, ref) => {
+  ({ label, error, hint, icon, trailing, className = "", id, ...props }, ref) => {
     const inputId = id || `input-${Math.random().toString(36).slice(2, 9)}`;
 
     return (
       <div className="space-y-1.5">
         {label && (
-          <label htmlFor={inputId} className="block text-sm font-medium text-brand-700">
+          <label htmlFor={inputId} className="block text-[13px] font-semibold text-brand-700 tracking-tight">
             {label}
             {props.required && <span className="text-red-500 ml-0.5" aria-hidden="true">*</span>}
           </label>
@@ -29,21 +31,25 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
             ref={ref}
             id={inputId}
             className={`
-              w-full rounded-xl border bg-white px-3 py-2.5 text-sm
-              transition-all duration-150
+              w-full rounded-xl border bg-white px-3.5 py-2.5 text-sm
+              transition-colors duration-150 outline-none
               placeholder:text-brand-400
               ${icon ? "pl-10" : ""}
+              ${trailing ? "pr-10" : ""}
               ${error
-                ? "border-red-200 bg-red-50/50 focus:border-red-400 focus:ring-red-100"
-                : "border-brand-200 focus:border-brand-400 focus:ring-brand-100"
+                ? "border-red-300 bg-red-50/40 focus:border-red-400"
+                : "border-brand-200 focus:border-brand-900"
               }
-              ${props.disabled ? "bg-brand-50 text-brand-500 cursor-not-allowed" : "text-brand-900"}
+              ${props.disabled ? "bg-brand-50 text-brand-400 cursor-not-allowed" : "text-brand-900"}
               ${className}
             `}
             aria-invalid={!!error}
             aria-describedby={error ? `${inputId}-error` : hint ? `${inputId}-hint` : undefined}
             {...props}
           />
+          {trailing && (
+            <div className="absolute right-3 top-1/2 -translate-y-1/2">{trailing}</div>
+          )}
         </div>
         {error && (
           <p id={`${inputId}-error`} className="text-xs text-red-600 flex items-center gap-1" role="alert">
@@ -79,7 +85,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
     return (
       <div className="space-y-1.5">
         {label && (
-          <label htmlFor={selectId} className="block text-sm font-medium text-brand-700">
+          <label htmlFor={selectId} className="block text-[13px] font-semibold text-brand-700 tracking-tight">
             {label}
             {props.required && <span className="text-red-500 ml-0.5" aria-hidden="true">*</span>}
           </label>
@@ -88,15 +94,15 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
           ref={ref}
           id={selectId}
           className={`
-            w-full rounded-xl border bg-white px-3 py-2.5 text-sm appearance-none
-            transition-all duration-150 cursor-pointer
+            w-full rounded-xl border bg-white px-3.5 py-2.5 text-sm appearance-none
+            transition-colors duration-150 cursor-pointer outline-none
             ${error
-              ? "border-red-200 bg-red-50/50 focus:border-red-400 focus:ring-red-100"
-              : "border-brand-200 focus:border-brand-400 focus:ring-brand-100"
+              ? "border-red-300 bg-red-50/40 focus:border-red-400"
+              : "border-brand-200 focus:border-brand-900"
             }
-            ${props.disabled ? "bg-brand-50 text-brand-500 cursor-not-allowed" : "text-brand-900"}
+            ${props.disabled ? "bg-brand-50 text-brand-400 cursor-not-allowed" : "text-brand-900"}
             ${className}
-            bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2020%2020%22%20fill%3D%22%23475569%22%3E%3Cpath%20fill%3D%22none%22%20stroke%3D%22currentColor%22%20stroke-width%3D%222%22%20d%3D%22M5.5%208l4.5%204.5L17.5%207%22%2F%3E%3C%2Fsvg%3E')] bg-[length:18px] bg-[right_12px_center] bg-no-repeat
+            bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2020%2020%22%20fill%3D%22%2352525b%22%3E%3Cpath%20fill%3D%22none%22%20stroke%3D%22currentColor%22%20stroke-width%3D%222%22%20d%3D%22M5.5%208l4.5%204.5L17.5%207%22%2F%3E%3C%2Fsvg%3E')] bg-[length:18px] bg-[right_12px_center] bg-no-repeat
           `}
           aria-invalid={!!error}
           aria-describedby={error ? `${selectId}-error` : hint ? `${selectId}-hint` : undefined}
@@ -141,7 +147,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
     return (
       <div className="space-y-1.5">
         {label && (
-          <label htmlFor={textareaId} className="block text-sm font-medium text-brand-700">
+          <label htmlFor={textareaId} className="block text-[13px] font-semibold text-brand-700 tracking-tight">
             {label}
             {props.required && <span className="text-red-500 ml-0.5" aria-hidden="true">*</span>}
           </label>
@@ -150,14 +156,14 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
           ref={ref}
           id={textareaId}
           className={`
-            w-full rounded-xl border bg-white px-3 py-2.5 text-sm
-            transition-all duration-150 resize-none
+            w-full rounded-xl border bg-white px-3.5 py-2.5 text-sm
+            transition-colors duration-150 resize-none outline-none
             placeholder:text-brand-400
             ${error
-              ? "border-red-200 bg-red-50/50 focus:border-red-400 focus:ring-red-100"
-              : "border-brand-200 focus:border-brand-400 focus:ring-brand-100"
+              ? "border-red-300 bg-red-50/40 focus:border-red-400"
+              : "border-brand-200 focus:border-brand-900"
             }
-            ${props.disabled ? "bg-brand-50 text-brand-500 cursor-not-allowed" : "text-brand-900"}
+            ${props.disabled ? "bg-brand-50 text-brand-400 cursor-not-allowed" : "text-brand-900"}
             ${className}
           `}
           aria-invalid={!!error}

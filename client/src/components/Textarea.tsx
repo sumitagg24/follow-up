@@ -12,7 +12,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
     return (
       <div className="space-y-1.5">
         {label && (
-          <label htmlFor={textareaId} className="block text-sm font-medium text-brand-700">
+          <label htmlFor={textareaId} className="block text-[13px] font-semibold text-brand-700 tracking-tight">
             {label}
             {props.required && <span className="text-red-500 ml-0.5" aria-hidden="true">*</span>}
           </label>
@@ -21,14 +21,14 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
           ref={ref}
           id={textareaId}
           className={`
-            w-full rounded-xl border bg-white px-3 py-2.5 text-sm resize-none
-            transition-all duration-150
+            w-full rounded-xl border bg-white px-3.5 py-2.5 text-sm resize-none
+            transition-colors duration-150 outline-none
             placeholder:text-brand-400
             ${error
-              ? "border-red-200 bg-red-50/50 focus:border-red-400 focus:ring-red-100"
-              : "border-brand-200 focus:border-brand-400 focus:ring-brand-100"
+              ? "border-red-300 bg-red-50/40 focus:border-red-400"
+              : "border-brand-200 focus:border-brand-900"
             }
-            ${props.disabled ? "bg-brand-50 text-brand-500 cursor-not-allowed" : "text-brand-900"}
+            ${props.disabled ? "bg-brand-50 text-brand-400 cursor-not-allowed" : "text-brand-900"}
             ${className}
           `}
           aria-invalid={!!error}

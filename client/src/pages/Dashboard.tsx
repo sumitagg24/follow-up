@@ -1,9 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api/client";
-import { Header } from "../components/Header";
 import { Card, StatCard, SectionHeader, PageHeader } from "../components/Card";
-import { FollowUpBadge, VentureBadge, TaskBadge } from "../components/StatusBadge";
+import { FollowUpBadge } from "../components/StatusBadge";
 import { EmptyState } from "../components/EmptyState";
 import { SkeletonCard, SkeletonStat, SkeletonRow } from "../components/Skeleton";
 import { useToast } from "../components/Toast";
@@ -12,6 +11,7 @@ import {
   Building2,
   AlertTriangle,
   CheckCircle,
+  CheckCircle2,
   Calendar,
   Play,
   Plus,
@@ -21,7 +21,7 @@ import {
   Flame,
   Clock,
   Users,
-  TrendingUp,
+  BadgeCheck,
 } from "lucide-react";
 import { Modal } from "../components/Modal";
 import { Button } from "../components/Button";
@@ -41,6 +41,12 @@ interface DashboardData {
   upcomingFollowUps: any[];
   recentActivity: any[];
   lastAutomationRun: any;
+}
+
+function initials(name: string): string {
+  const parts = (name || "?").trim().split(/\s+/);
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[1][0]).toUpperCase();
 }
 
 export function Dashboard() {
@@ -85,7 +91,7 @@ export function Dashboard() {
     try {
       await api.completeFollowUp(fu._id);
       toast.push("Follow-up completed", "success");
-      load();
+      await load();
     } catch (e: any) {
       toast.push(e.message, "error");
     }
@@ -93,11 +99,13 @@ export function Dashboard() {
 
   async function saveReschedule() {
     if (!newDate || !resched) return;
+    const dueDate = newDate;
     try {
-      await api.rescheduleFollowUp(resched._id, newDate);
+      await api.rescheduleFollowUp(resched._id, dueDate);
       toast.push("Follow-up rescheduled", "success");
       setResched(null);
-      load();
+      setNewDate("");
+      await load();
     } catch (e: any) {
       toast.push(e.message, "error");
     }
@@ -114,17 +122,17 @@ export function Dashboard() {
 
   if (loading) {
     return (
-      <div className="p-4 lg:p-6 max-w-7xl mx-auto">
+      <div className="p-4 lg:p-6 max-w-6xl mx-auto">
         <div className="mb-6">
-          <div className="h-7 w-48 rounded-lg skeleton-shimmer mb-3" />
-          <div className="h-4 w-64 rounded-lg skeleton-shimmer" />
+          <div className="h-7 w-48 rounded-full skeleton-shimmer mb-3" />
+          <div className="h-4 w-64 rounded-full skeleton-shimmer" />
         </div>
-        <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 mb-6">
           {Array.from({ length: 6 }).map((_, i) => (
             <SkeletonStat key={i} />
           ))}
         </div>
-        <div className="grid lg:grid-cols-3 gap-6">
+        <div className="grid lg:grid-cols-3 gap-4 sm:gap-6">
           <div className="lg:col-span-2 space-y-4">
             {Array.from({ length: 4 }).map((_, i) => (
               <SkeletonRow key={i} />
@@ -141,9 +149,13 @@ export function Dashboard() {
 
   if (error) {
     return (
-      <div className="p-6 max-w-7xl mx-auto">
-        <div className="bg-red-50 border border-red-200 rounded-2xl p-4 text-sm text-red-700">
-          {error}
+      <div className="p-4 lg:p-6 max-w-6xl mx-auto">
+        <div className="slaky-card p-6 text-center">
+          <p className="text-sm font-semibold text-red-700 mb-1">Couldn't load the dashboard</p>
+          <p className="text-[13px] text-brand-500 mb-4">{error}</p>
+          <Button variant="secondary" onClick={load}>
+            Try again
+          </Button>
         </div>
       </div>
     );
@@ -151,204 +163,261 @@ export function Dashboard() {
 
   if (!data) return null;
 
+  // An overdue follow-up due today is returned in BOTH server lists —
+  // show it once (under Today's) so the board never double-counts.
+  const todayIds = new Set((data.todaysFollowUps ?? []).map((fu: any) => fu._id));
+  const overdueOnly = (data.overdueFollowUps ?? []).filter((fu: any) => !todayIds.has(fu._id));
+
   return (
-    <div className="p-4 lg:p-6 max-w-7xl mx-auto">
-      {/* Header */}
-      <PageHeader
-        title="Dashboard"
-        subtitle={`${greeting} — ${dateStr}`}
-        action={
-          <div className="flex items-center gap-3">
-            <Button
-              variant="secondary"
-              onClick={runAutomation}
-              disabled={running}
-              icon={<Play size={15} />}
-              iconRight={<Clock size={14} />}
-            >
-              {running ? "Running..." : "Run Reminder Check"}
-            </Button>
-            <Link to="/ventures/new">
-              <Button icon={<Plus size={15} />} className="bg-brand-900 hover:bg-brand-800">
-                New Venture
+    <div className="p-4 lg:p-6 max-w-6xl mx-auto">
+      {/* Slaky-style hero */}
+      <div className="text-center sm:text-left mb-6">
+        <p className="inline-flex items-center gap-1.5 rounded-full border border-brand-200 bg-white px-3 py-1 text-[11px] font-semibold text-brand-600 mb-3">
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" aria-hidden="true" />
+          Verified ops · never a spreadsheet
+        </p>
+        <PageHeader
+          title="The database of verified founder follow-ups"
+          subtitle={`${greeting} — ${dateStr}. Every follow-up confirmed live across ${data.stats.totalVentures} ${data.stats.totalVentures === 1 ? "venture" : "ventures"}.`}
+          action={
+            <div className="flex items-center justify-center sm:justify-start gap-2.5 flex-wrap">
+              <Button
+                variant="secondary"
+                onClick={runAutomation}
+                disabled={running}
+                icon={<Play size={14} />}
+              >
+                {running ? "Running..." : "Run check"}
               </Button>
-            </Link>
-          </div>
-        }
-      />
+              <Link to="/ventures/new">
+                <Button icon={<Plus size={15} />}>
+                  New Venture
+                </Button>
+              </Link>
+            </div>
+          }
+        />
+        <div className="flex flex-wrap items-center justify-center sm:justify-start gap-x-4 gap-y-1 text-[13px] text-brand-500 -mt-3 mb-1">
+          <Link to="/ventures" className="hover:text-brand-900 font-medium transition-colors">Directory</Link>
+          <span aria-hidden="true" className="text-brand-300">·</span>
+          <Link to="/analytics" className="hover:text-brand-900 font-medium transition-colors">Leaderboard</Link>
+          <span aria-hidden="true" className="text-brand-300">·</span>
+          <Link to="/activity" className="hover:text-brand-900 font-medium transition-colors">Feed</Link>
+          <span aria-hidden="true" className="text-brand-300">·</span>
+          <Link to="/automation" className="hover:text-brand-900 font-medium transition-colors">How we verify</Link>
+        </div>
+      </div>
 
       {/* Alert banner */}
-      {data.overdueFollowUps.length > 0 && (
-        <div className="mb-6 bg-red-50 border border-red-200 rounded-2xl p-4 flex items-start gap-3 animate-fade-in">
-          <div className="w-8 h-8 rounded-lg bg-red-100 text-red-600 grid place-items-center shrink-0">
+      {overdueOnly.length > 0 && (
+        <div className="mb-5 bg-white border border-red-200 rounded-2xl p-4 flex items-start gap-3 animate-fade-in">
+          <div className="w-9 h-9 rounded-xl bg-red-50 border border-red-100 text-red-600 grid place-items-center shrink-0">
             <Flame size={16} />
           </div>
-          <div>
-            <p className="text-sm font-medium text-red-800">
-              {data.overdueFollowUps.length} follow-up{data.overdueFollowUps.length !== 1 ? "s" : ""} overdue
+          <div className="min-w-0">
+            <p className="text-sm font-bold text-brand-900 tracking-tight">
+              {overdueOnly.length} follow-up{overdueOnly.length !== 1 ? "s" : ""} overdue
             </p>
-            <p className="text-sm text-red-700 mt-0.5">
-              Reach out to founders as soon as possible.
+            <p className="text-[13px] text-brand-500 mt-0.5">
+              Reach out to founders as soon as possible — overdue items sit at the top of the board.
             </p>
           </div>
+          <span className="ml-auto slaky-pill !border-red-200 !bg-red-50 !text-red-700 shrink-0">
+            △ {overdueOnly.length}
+          </span>
         </div>
       )}
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+      {/* KPI cards — Slaky metric blocks */}
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 mb-6">
         <StatCard
           label="Total Ventures"
           value={data.stats.totalVentures}
-          icon={<Building2 size={18} />}
+          icon={<Building2 size={17} />}
+          hint="In the directory"
         />
         <StatCard
           label="Active Ventures"
           value={data.stats.activeVentures}
-          icon={<Users size={18} />}
+          icon={<Users size={17} />}
+          hint="Currently engaged"
         />
         <StatCard
           label="Due Today"
           value={data.stats.todaysFollowUps}
-          icon={<Calendar size={18} />}
-          trend={data.stats.todaysFollowUps > 0 ? { value: data.stats.todaysFollowUps, label: "due today" } : undefined}
+          icon={<Calendar size={17} />}
+          trend={data.stats.todaysFollowUps > 0 ? { value: data.stats.todaysFollowUps, label: "due today", positive: false } : undefined}
         />
         <StatCard
           label="Overdue"
           value={data.stats.overdueFollowUps}
-          icon={<AlertTriangle size={18} className="text-red-500" />}
-          className={data.stats.overdueFollowUps > 0 ? "border-red-200" : ""}
+          icon={<AlertTriangle size={17} className={data.stats.overdueFollowUps > 0 ? "text-red-500" : undefined} />}
+          className={data.stats.overdueFollowUps > 0 ? "!border-red-200" : ""}
+          hint={data.stats.overdueFollowUps > 0 ? "Needs action now" : "All clear"}
         />
         <StatCard
           label="Open Tasks"
           value={data.stats.openTasks}
-          icon={<ListTodo size={18} />}
+          icon={<ListTodo size={17} />}
+          hint="Across all ventures"
         />
         <StatCard
           label="Completed Tasks"
           value={data.stats.completedTasks}
-          icon={<CheckCircle size={18} className="text-emerald-500" />}
+          icon={<CheckCircle size={17} className="text-emerald-600" />}
+          hint="Verified done"
         />
       </div>
 
       {/* Main content */}
-      <div className="grid lg:grid-cols-3 gap-6">
+      <div className="grid lg:grid-cols-3 gap-4 sm:gap-6">
         {/* Today's and Overdue follow-ups — span 2 cols */}
-        <div className="lg:col-span-2 space-y-6">
+        <div className="lg:col-span-2 space-y-6 min-w-0">
           {/* Today's Follow-ups */}
-          <SectionHeader
-            title="Today's Follow-ups"
-            description={data?.todaysFollowUps.length ? `${data.todaysFollowUps.length} follow-up${data.todaysFollowUps.length !== 1 ? "s" : ""} due today` : "Nothing due today"}
-          />
-          {(!data?.todaysFollowUps || data.todaysFollowUps.length === 0) ? (
-            <EmptyState
-              icon={CheckCircle}
-              title="Nothing due today"
-              description="All caught up. Run a reminder check to scan for overdue items."
+          <section>
+            <SectionHeader
+              title="Today's follow-ups"
+              description={data?.todaysFollowUps.length ? `${data.todaysFollowUps.length} follow-up${data.todaysFollowUps.length !== 1 ? "s" : ""} due today` : "Nothing due today"}
+              action={data?.todaysFollowUps.length ? (
+                <Link to="/tasks" className="text-xs font-semibold text-brand-500 hover:text-brand-900 inline-flex items-center gap-1 transition-colors">
+                  View all <ArrowRight size={12} />
+                </Link>
+              ) : undefined}
             />
-          ) : (
-            <div className="space-y-3">
-              {data.todaysFollowUps.map((fu: any) => (
-                <FollowUpRow key={fu._id} fu={fu} onReschedule={setResched} onComplete={completeFollowUp} />
-              ))}
-            </div>
-          )}
-
-          {/* Overdue */}
-          {data?.overdueFollowUps && data.overdueFollowUps.length > 0 && (
-            <>
-              <SectionHeader
-                title="Overdue"
-                description={`${data.overdueFollowUps.length} overdue follow-up${data.overdueFollowUps.length !== 1 ? "s" : ""}`}
+            {(!data?.todaysFollowUps || data.todaysFollowUps.length === 0) ? (
+              <EmptyState
+                icon={CheckCircle2}
+                title="Nothing due today"
+                description="All caught up. Run a reminder check to scan for overdue items."
               />
+            ) : (
               <div className="space-y-3">
-                {data.overdueFollowUps.map((fu: any) => (
-                  <FollowUpRow key={fu._id} fu={fu} tone="overdue" onReschedule={setResched} onComplete={completeFollowUp} />
+                {data.todaysFollowUps.map((fu: any) => (
+                  <FollowUpRow key={fu._id} fu={fu} onReschedule={setResched} onComplete={completeFollowUp} />
                 ))}
               </div>
-            </>
+            )}
+          </section>
+
+          {/* Overdue */}
+          {overdueOnly.length > 0 && (
+            <section>
+              <SectionHeader
+                title="Overdue — claim the top spot"
+                description={`${overdueOnly.length} overdue follow-up${overdueOnly.length !== 1 ? "s" : ""} · oldest first`}
+              />
+              <div className="space-y-3">
+                {overdueOnly.map((fu: any, i: number) => (
+                  <FollowUpRow key={fu._id} fu={fu} rank={i + 1} tone="overdue" onReschedule={setResched} onComplete={completeFollowUp} />
+                ))}
+              </div>
+            </section>
           )}
 
           {/* Upcoming */}
           {data?.upcomingFollowUps && data.upcomingFollowUps.length > 0 && (
-            <>
+            <section>
               <SectionHeader
-                title="Upcoming (next 7 days)"
-                description="Future follow-ups scheduled"
+                title="Upcoming · next 7 days"
+                description="Future follow-ups on the board"
               />
-              <div className="space-y-3">
-                {data.upcomingFollowUps.map((fu: any) => (
-                  <UpcomingRow key={fu._id} fu={fu} />
-                ))}
+              <div className="slaky-card overflow-hidden">
+                <div className="divide-y divide-brand-100">
+                  {data.upcomingFollowUps.map((fu: any) => (
+                    <UpcomingRow key={fu._id} fu={fu} />
+                  ))}
+                </div>
               </div>
-            </>
+            </section>
           )}
+
+          {/* How we verify — Slaky trust strip */}
+          <section className="slaky-card p-5">
+            <h3 className="text-[15px] font-bold text-brand-900 tracking-tight mb-1">How we verify</h3>
+            <p className="text-[13px] text-brand-500 mb-4">A green check you can actually trust.</p>
+            <ol className="grid sm:grid-cols-4 gap-4">
+              {[
+                { n: "01", t: "Venture created", d: "Profile + founder captured once." },
+                { n: "02", t: "Tasks generated", d: "Review, follow-up and discussion auto-made." },
+                { n: "03", t: "Daily check", d: "Automation scans for overdue every 09:00." },
+                { n: "04", t: "Verified live", d: "Completion lands on the feed instantly." },
+              ].map((s) => (
+                <li key={s.n} className="min-w-0">
+                  <p className="text-[11px] font-bold text-brand-300 tabular-nums">{s.n}</p>
+                  <p className="text-[13px] font-bold text-brand-900 tracking-tight mt-1">{s.t}</p>
+                  <p className="text-xs text-brand-500 mt-0.5 leading-relaxed">{s.d}</p>
+                </li>
+              ))}
+            </ol>
+          </section>
         </div>
 
         {/* Right column — activity + automation */}
-        <div className="space-y-6">
+        <div className="space-y-4 sm:space-y-6 min-w-0">
           {/* Automation summary */}
           <Card padding="md">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-9 h-9 rounded-xl bg-brand-900 text-white grid place-items-center shrink-0">
                 <Bot size={16} />
               </div>
-              <div>
-                <h3 className="text-sm font-semibold text-brand-900">Automation</h3>
+              <div className="min-w-0">
+                <h3 className="text-sm font-bold text-brand-900 tracking-tight">Automation</h3>
                 <p className="text-xs text-brand-500">Daily reminder check</p>
               </div>
+              <span className="ml-auto slaky-pill">09:00</span>
             </div>
             {data?.lastAutomationRun ? (
-              <div className="text-sm text-brand-600 space-y-2">
-                <div className="flex justify-between">
-                  <span className="text-brand-500">Last run</span>
-                  <span className="text-brand-900">{new Date(data.lastAutomationRun.at).toLocaleString()}</span>
+              <dl className="text-[13px] space-y-2.5">
+                <div className="flex justify-between gap-3">
+                  <dt className="text-brand-400">Last run</dt>
+                  <dd className="text-brand-900 font-medium text-right">{new Date(data.lastAutomationRun.at).toLocaleString()}</dd>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-brand-500">Triggered by</span>
-                  <span className="text-brand-900 capitalize">{data.lastAutomationRun.triggeredBy}</span>
+                <div className="flex justify-between gap-3">
+                  <dt className="text-brand-400">Triggered by</dt>
+                  <dd className="text-brand-900 font-medium capitalize">{data.lastAutomationRun.triggeredBy}</dd>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-brand-500">Checked</span>
-                  <span className="text-brand-900 font-medium">{data.lastAutomationRun.checked} ventures</span>
+                <div className="flex justify-between gap-3">
+                  <dt className="text-brand-400">Checked</dt>
+                  <dd className="text-brand-900 font-bold tabular-nums">{data.lastAutomationRun.checked}</dd>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-brand-500">Reminders</span>
-                  <span className="text-brand-900 font-medium">{data.lastAutomationRun.remindersGenerated}</span>
+                <div className="flex justify-between gap-3">
+                  <dt className="text-brand-400">Reminders</dt>
+                  <dd className="text-brand-900 font-bold tabular-nums">{data.lastAutomationRun.remindersGenerated}</dd>
                 </div>
                 {data.lastAutomationRun.emailsSent > 0 && (
-                  <div className="flex justify-between">
-                    <span className="text-brand-500">Emails sent</span>
-                    <span className="text-brand-900 font-medium text-emerald-600">{data.lastAutomationRun.emailsSent}</span>
+                  <div className="flex justify-between gap-3">
+                    <dt className="text-brand-400">Emails sent</dt>
+                    <dd className="font-bold text-emerald-600 tabular-nums">{data.lastAutomationRun.emailsSent}</dd>
                   </div>
                 )}
-              </div>
+              </dl>
             ) : (
-              <p className="text-sm text-brand-500">Never run yet — the daily schedule fires at 09:00.</p>
+              <p className="text-[13px] text-brand-500">Never run yet — the daily schedule fires at 09:00.</p>
             )}
             <div className="mt-4 pt-3 border-t border-brand-100 flex items-center justify-between">
-              <span className="text-xs text-brand-500">Schedule: Daily 09:00</span>
-              <Link to="/automation" className="text-xs text-accent-600 hover:text-accent-700 font-medium flex items-center gap-1">
+              <span className="text-xs text-brand-400 inline-flex items-center gap-1.5"><Clock size={12} /> Daily 09:00</span>
+              <Link to="/automation" className="text-xs text-brand-900 hover:text-brand-600 font-semibold flex items-center gap-1 transition-colors">
                 Automation Center <ArrowRight size={12} />
               </Link>
             </div>
           </Card>
 
-          {/* Recent activity */}
+          {/* Recent activity — Slaky feed */}
           <Card padding="md">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-semibold text-brand-900">Recent Activity</h3>
-              <Link to="/activity" className="text-xs text-accent-600 hover:text-accent-700 font-medium">
+              <h3 className="text-sm font-bold text-brand-900 tracking-tight">Latest from the feed</h3>
+              <Link to="/activity" className="text-xs text-brand-900 hover:text-brand-600 font-semibold inline-flex items-center gap-1 transition-colors">
                 View all <ArrowRight size={12} />
               </Link>
             </div>
             {(!data?.recentActivity || data.recentActivity.length === 0) ? (
-              <p className="text-sm text-brand-500 py-4">No activity yet</p>
+              <p className="text-[13px] text-brand-500 py-4 text-center">No activity yet</p>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-2.5">
                 {data.recentActivity.slice(0, 8).map((a: any) => (
-                  <div key={a._id} className="p-3 rounded-xl bg-brand-50 border border-brand-100">
-                    <p className="text-sm text-brand-900 leading-relaxed">{a.description}</p>
-                    <p className="text-xs text-brand-500 mt-1.5">
+                  <div key={a._id} className="rounded-xl bg-brand-50 border border-brand-100 px-3 py-2.5">
+                    <p className="text-[13px] text-brand-900 leading-snug font-medium">{a.description}</p>
+                    <p className="text-[11px] text-brand-400 mt-1 tabular-nums">
                       {new Date(a.createdAt).toLocaleString()}
                     </p>
                   </div>
@@ -362,22 +431,22 @@ export function Dashboard() {
       {/* Reschedule modal */}
       <Modal
         open={!!resched}
-        onClose={() => setResched(null)}
-        title="Reschedule Follow-up"
+        onClose={() => { setResched(null); setNewDate(""); }}
+        title="Reschedule follow-up"
         size="sm"
         footer={
           <>
-            <Button variant="ghost" onClick={() => setResched(null)}>
+            <Button variant="ghost" onClick={() => { setResched(null); setNewDate(""); }}>
               Cancel
             </Button>
-            <Button onClick={() => { setNewDate(""); saveReschedule(); }} disabled={!newDate}>
+            <Button onClick={saveReschedule} disabled={!newDate}>
               Save
             </Button>
           </>
         }
       >
         <div className="space-y-4">
-          <p className="text-sm text-brand-600">
+          <p className="text-sm text-brand-500">
             Set a new date for this follow-up.
           </p>
           <Input
@@ -392,64 +461,69 @@ export function Dashboard() {
   );
 }
 
-function FollowUpRow({ fu, tone, onReschedule, onComplete }: { fu: any; tone?: "overdue"; onReschedule: (fu: any) => void; onComplete: (fu: any) => void }) {
+function FollowUpRow({ fu, tone, rank, onReschedule, onComplete }: { fu: any; tone?: "overdue"; rank?: number; onReschedule: (fu: any) => void; onComplete: (fu: any) => void }) {
   const v = fu.ventureId;
   if (!v || typeof v === "string") return null;
 
   return (
-    <div
+    <article
       className={`
-        bg-white rounded-2xl border p-4
-        ${tone === "overdue" ? "border-red-200 bg-red-50/30" : "border-brand-100"}
-        transition-all duration-150
+        slaky-card slaky-card-hover p-4
+        ${tone === "overdue" ? "!border-red-200" : ""}
       `}
     >
-      <div className="flex items-start justify-between gap-3">
+      <div className="flex items-start gap-3">
+        {typeof rank === "number" && (
+          <span className="w-6 shrink-0 pt-1 text-xs font-bold text-brand-300 tabular-nums text-center">{String(rank).padStart(2, "0")}</span>
+        )}
+        <div className="slaky-avatar w-10 h-10 text-[13px]" aria-hidden="true">
+          {initials(v.name)}
+        </div>
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2 mb-1">
-            {tone === "overdue" && (
-              <span className="shrink-0">
-                <Flame size={13} className="text-red-500" />
-              </span>
-            )}
-            <span className="font-medium text-brand-900 truncate">{v.name}</span>
-          </div>
-          <p className="text-sm text-brand-500 truncate">
-            {v.founderName} · Due {formatDate(fu.dueDate)}
-          </p>
-          <div className="mt-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="font-bold text-[14px] text-brand-900 tracking-tight truncate">{v.name}</span>
+            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
+              <BadgeCheck size={11} /> Verified
+            </span>
             <FollowUpBadge status={fu.status} />
           </div>
+          <p className="text-[13px] text-brand-500 truncate mt-0.5">
+            {v.founderName} · Due {formatDate(fu.dueDate)}
+          </p>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <Link
+              to={`/ventures/${v._id}`}
+              className="slaky-btn-secondary px-3.5 py-1.5 text-xs"
+            >
+              View <ArrowRight size={12} />
+            </Link>
+            {fu.status !== "completed" && (
+              <>
+                <button
+                  onClick={() => onReschedule(fu)}
+                  className="slaky-btn-secondary px-3.5 py-1.5 text-xs"
+                >
+                  <Calendar size={13} />
+                  Reschedule
+                </button>
+                <button
+                  onClick={() => onComplete(fu)}
+                  className="slaky-btn-primary px-3.5 py-1.5 text-xs"
+                >
+                  <CheckCircle size={13} />
+                  Complete
+                </button>
+              </>
+            )}
+          </div>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <Link
-            to={`/ventures/${v._id}`}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-brand-200 text-sm text-brand-700 hover:bg-brand-50 transition-colors min-h-[36px]"
-          >
-            View
-            <ArrowRight size={12} />
-          </Link>
-          {fu.status !== "completed" && (
-            <>
-              <button
-                onClick={() => onReschedule(fu)}
-                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-brand-200 text-sm text-brand-700 hover:bg-brand-50 transition-colors min-h-[36px]"
-              >
-                <Calendar size={13} />
-                Reschedule
-              </button>
-              <button
-                onClick={() => onComplete(fu)}
-                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 transition-colors min-h-[36px]"
-              >
-                <CheckCircle size={13} />
-                Complete
-              </button>
-            </>
-          )}
-        </div>
+        {tone === "overdue" && (
+          <span className="shrink-0 rounded-full bg-red-50 border border-red-200 text-red-600 p-1.5" title="Overdue">
+            <Flame size={13} />
+          </span>
+        )}
       </div>
-    </div>
+    </article>
   );
 }
 
@@ -458,23 +532,24 @@ function UpcomingRow({ fu }: { fu: any }) {
   if (!v || typeof v === "string") return null;
 
   return (
-    <div className="bg-white rounded-2xl border border-brand-100 p-4 transition-all duration-150">
-      <div className="flex items-center justify-between">
-        <div className="min-w-0 flex-1">
-          <p className="font-medium text-brand-900 truncate">{v.name}</p>
-          <p className="text-sm text-brand-500 truncate">
-            {v.founderName} · Due {formatDate(fu.dueDate)}
-          </p>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <FollowUpBadge status={fu.status} />
-          <Link
-            to={`/ventures/${v._id}`}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-brand-200 text-sm text-brand-700 hover:bg-brand-50 transition-colors min-h-[36px]"
-          >
-            View <ArrowRight size={12} />
-          </Link>
-        </div>
+    <div className="px-4 py-3 flex items-center gap-3 hover:bg-brand-50/70 transition-colors">
+      <div className="slaky-avatar w-8 h-8 text-[11px]" aria-hidden="true">
+        {initials(v.name)}
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="font-bold text-[13px] text-brand-900 tracking-tight truncate">{v.name}</p>
+        <p className="text-xs text-brand-500 truncate">
+          {v.founderName} · Due {formatDate(fu.dueDate)}
+        </p>
+      </div>
+      <div className="flex items-center gap-2 shrink-0">
+        <FollowUpBadge status={fu.status} />
+        <Link
+          to={`/ventures/${v._id}`}
+          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full border border-brand-200 text-xs font-semibold text-brand-700 hover:border-brand-900 hover:text-brand-900 transition-colors"
+        >
+          View <ArrowRight size={11} />
+        </Link>
       </div>
     </div>
   );

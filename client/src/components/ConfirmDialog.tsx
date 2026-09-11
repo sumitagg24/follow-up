@@ -52,11 +52,11 @@ export function ConfirmDialog({
     >
       <div className="space-y-4">
         <div className="flex items-start gap-3">
-          <div className="w-10 h-10 rounded-xl bg-red-50 text-red-600 grid place-items-center shrink-0">
+          <div className="w-10 h-10 rounded-2xl bg-red-50 border border-red-100 text-red-600 grid place-items-center shrink-0">
             <Trash2 size={18} />
           </div>
           <div>
-            <p className="text-sm text-brand-700">{message}</p>
+            <p className="text-sm text-brand-600 leading-relaxed">{message}</p>
           </div>
         </div>
       </div>

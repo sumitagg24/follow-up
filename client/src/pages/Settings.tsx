@@ -1,11 +1,10 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
-import { Header } from "../components/Header";
 import { PageHeader } from "../components/Card";
 import { Card } from "../components/Card";
 import { SkeletonCard } from "../components/Skeleton";
 import { usePageTitle } from "../hooks/usePageTitle";
-import { Database, Mail, Clock3, ShieldCheck, AlertTriangle, CheckCircle2, XCircle } from "lucide-react";
+import { Database, Mail, Clock3, ShieldCheck, AlertTriangle } from "lucide-react";
 
 type SystemStatus = {
   db: { mode: string; persistent: boolean; connected: boolean; name: string | null };
@@ -25,32 +24,33 @@ interface StatusCardProps {
 
 function StatusCard({ icon, label, value, status, note }: StatusCardProps) {
   const statusStyles = {
-    ok: { bg: "bg-emerald-50", icon: "text-emerald-600", badge: "bg-emerald-100 text-emerald-700" },
-    warning: { bg: "bg-accent-50", icon: "text-accent-600", badge: "bg-accent-100 text-accent-700" },
-    error: { bg: "bg-red-50", icon: "text-red-600", badge: "bg-red-100 text-red-700" },
-    neutral: { bg: "bg-brand-50", icon: "text-brand-500", badge: "bg-brand-100 text-brand-600" },
+    ok: { tile: "bg-emerald-50 border-emerald-100 text-emerald-600", badge: "bg-emerald-50 text-emerald-700 border-emerald-200" },
+    warning: { tile: "bg-brand-100 border-brand-200 text-brand-600", badge: "bg-brand-100 text-brand-700 border-brand-200" },
+    error: { tile: "bg-red-50 border-red-100 text-red-600", badge: "bg-red-50 text-red-700 border-red-200" },
+    neutral: { tile: "bg-brand-100 border-brand-200 text-brand-500", badge: "bg-brand-100 text-brand-600 border-brand-200" },
   };
 
   const s = statusStyles[status];
 
   return (
-    <div className="flex items-start gap-3 p-4 rounded-xl bg-brand-50 border border-brand-50">
-      <div className={`w-9 h-9 rounded-xl ${s.bg} ${s.icon} grid place-items-center shrink-0`}>
+    <div className="slaky-card flex items-start gap-3 p-4">
+      <div className={`w-9 h-9 rounded-xl border grid place-items-center shrink-0 ${s.tile}`}>
         {icon}
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-sm font-medium text-brand-900">{label}</span>
-          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${s.badge}`}>
+          <span className="text-sm font-bold text-brand-900 tracking-tight">{label}</span>
+          <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-semibold border ${s.badge}`}>
+            <span className={`w-1.5 h-1.5 rounded-full ${status === "ok" ? "bg-emerald-500" : status === "error" ? "bg-red-500" : "bg-brand-400"}`} aria-hidden="true" />
             {status === "ok" && "Active"}
             {status === "warning" && "Dev mode"}
             {status === "error" && "Down"}
             {status === "neutral" && "—"}
           </span>
         </div>
-        <p className="text-sm text-brand-600 mt-0.5">{value}</p>
+        <p className="text-[13px] text-brand-600 mt-1">{value}</p>
         {note && (
-          <p className="text-xs text-brand-400 mt-1.5">{note}</p>
+          <p className="text-xs text-brand-400 mt-1.5 leading-relaxed">{note}</p>
         )}
       </div>
     </div>
@@ -101,18 +101,18 @@ export function Settings() {
         <>
           {/* In-memory warning */}
           {status.db.mode === "in-memory" && (
-            <div className="mb-4 bg-accent-50 border border-accent-200 rounded-2xl p-4 flex items-start gap-3 animate-fade-in">
-              <div className="w-8 h-8 rounded-lg bg-accent-100 text-accent-600 grid place-items-center shrink-0">
+            <div className="mb-4 bg-white border border-brand-300 rounded-2xl p-4 flex items-start gap-3 animate-fade-in">
+              <div className="w-9 h-9 rounded-xl bg-brand-900 text-white grid place-items-center shrink-0">
                 <AlertTriangle size={16} />
               </div>
               <div>
-                <p className="text-sm font-medium text-accent-800">
+                <p className="text-sm font-bold text-brand-900 tracking-tight">
                   Development fallback active
                 </p>
-                <p className="text-sm text-accent-700 mt-1">
+                <p className="text-[13px] text-brand-500 mt-1 leading-relaxed">
                   The server is using an in-memory database — data will be lost on restart.
-                  Set <code className="bg-accent-100 px-1 rounded text-xs">MONGODB_URI</code> in{" "}
-                  <code className="bg-accent-100 px-1 rounded text-xs">server/.env</code> for persistent storage.
+                  Set <code className="bg-brand-100 px-1.5 py-0.5 rounded-md text-xs font-mono text-brand-900">MONGODB_URI</code> in{" "}
+                  <code className="bg-brand-100 px-1.5 py-0.5 rounded-md text-xs font-mono text-brand-900">server/.env</code> for persistent storage.
                 </p>
               </div>
             </div>
@@ -136,8 +136,7 @@ export function Settings() {
                   : status.db.connected
                   ? "ok"
                   : "error"
-              }
-              note="Configured via MONGODB_URI. The in-memory fallback exists for zero-setup demos only."
+              }                note="Configured via MONGODB_URI. Ensure a persistent MongoDB instance is connected before relying on stored data."
             />
             <StatusCard
               icon={<Mail size={16} />}
@@ -167,15 +166,15 @@ export function Settings() {
 
           {/* Environment variables reference */}
           <Card padding="md">
-            <div className="flex items-center gap-2 mb-3">
-              <div className="w-8 h-8 rounded-lg bg-brand-100 text-brand-600 grid place-items-center shrink-0">
+            <div className="flex items-center gap-2.5 mb-3">
+              <div className="w-8 h-8 rounded-xl bg-brand-100 text-brand-600 grid place-items-center shrink-0">
                 <Database size={15} />
               </div>
-              <h3 className="font-semibold text-brand-900">Environment Variables</h3>
+              <h3 className="text-[15px] font-bold text-brand-900 tracking-tight">Environment variables</h3>
             </div>
-            <p className="text-sm text-brand-500 mb-4">
-              Set in <code className="bg-brand-100 px-1 rounded text-xs">server/.env</code> (see{" "}
-              <code className="bg-brand-100 px-1 rounded text-xs">server/.env.example</code>).
+            <p className="text-[13px] text-brand-500 mb-4">
+              Set in <code className="bg-brand-100 px-1.5 py-0.5 rounded-md text-xs font-mono text-brand-900">server/.env</code> (see{" "}
+              <code className="bg-brand-100 px-1.5 py-0.5 rounded-md text-xs font-mono text-brand-900">server/.env.example</code>).
             </p>
             <div className="space-y-3">
               {[
@@ -184,11 +183,11 @@ export function Settings() {
                 ["CLIENT_URL", "Allowed CORS origin (default http://localhost:5173)"],
                 ["SMTP_HOST / SMTP_PORT / SMTP_USER / SMTP_PASS / SMTP_FROM", "Enable real reminder email delivery"],
               ].map(([key, desc]) => (
-                <div key={key} className="flex items-start gap-2">
-                  <code className="bg-brand-100 text-brand-700 px-2 py-0.5 rounded text-xs font-mono w-fit shrink-0">
+                <div key={key} className="flex items-start gap-2.5">
+                  <code className="bg-brand-900 text-white px-2 py-1 rounded-lg text-[11px] font-mono w-fit shrink-0">
                     {key}
                   </code>
-                  <span className="text-xs text-brand-500">{desc}</span>
+                  <span className="text-xs text-brand-500 leading-relaxed pt-0.5">{desc}</span>
                 </div>
               ))}
             </div>

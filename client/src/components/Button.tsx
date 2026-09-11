@@ -12,18 +12,19 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   iconRight?: React.ReactNode;
 }
 
+// Slaky-style: black pill primary, hairline secondary, quiet ghost.
 const variantClasses: Record<Variant, string> = {
-  primary: "bg-brand-900 text-white hover:bg-brand-800 disabled:bg-brand-800/50",
-  secondary: "bg-brand-100 text-brand-900 hover:bg-brand-200 disabled:bg-brand-100/50",
-  ghost: "text-brand-600 hover:bg-brand-100 disabled:text-brand-300",
-  danger: "bg-red-600 text-white hover:bg-red-700 disabled:bg-red-600/50",
-  outline: "border border-brand-200 bg-white text-brand-700 hover:bg-brand-50 disabled:border-brand-100 disabled:text-brand-300",
+  primary: "bg-brand-900 text-white hover:bg-brand-800 disabled:bg-brand-300 shadow-none",
+  secondary: "bg-white text-brand-900 border border-brand-200 hover:border-brand-400 hover:bg-brand-50 disabled:opacity-50",
+  ghost: "text-brand-600 hover:bg-brand-100 hover:text-brand-900 disabled:text-brand-300",
+  danger: "bg-red-600 text-white hover:bg-red-700 disabled:bg-red-300",
+  outline: "border border-brand-200 bg-white text-brand-700 hover:border-brand-900 hover:text-brand-900 disabled:opacity-50",
 };
 
 const sizeClasses: Record<Size, string> = {
-  sm: "px-3 py-1.5 text-xs min-h-[32px] gap-1.5",
-  md: "px-4 py-2 text-sm min-h-[40px] gap-2",
-  lg: "px-5 py-2.5 text-sm min-h-[48px] gap-2 font-medium",
+  sm: "px-3.5 py-1.5 text-xs min-h-[32px] gap-1.5",
+  md: "px-4 py-2 text-[13px] min-h-[38px] gap-2",
+  lg: "px-5 py-2.5 text-sm min-h-[44px] gap-2",
 };
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
@@ -34,13 +35,14 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         disabled={disabled || loading}
         aria-busy={loading}
         className={`
-          inline-flex items-center justify-center font-medium
-          transition-all duration-150
+          inline-flex items-center justify-center font-semibold tracking-tight
+          rounded-full whitespace-nowrap
+          transition-colors duration-150
+          focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-900
           ${variantClasses[variant]}
           ${sizeClasses[size]}
           ${loading ? "opacity-80 cursor-wait" : "cursor-pointer"}
           ${disabled ? "cursor-not-allowed" : ""}
-          ${variant === "outline" ? "border border-brand-200" : "rounded-xl"}
           ${className}
         `}
         {...props}

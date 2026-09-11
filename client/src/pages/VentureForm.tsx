@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
 import { api } from "../api/client";
 import { PageHeader } from "../components/Card";
-import { Header } from "../components/Header";
 import { useToast } from "../components/Toast";
 import { fmtDateInput } from "../utils/format";
 import { usePageTitle } from "../hooks/usePageTitle";
@@ -30,6 +29,7 @@ export function VentureForm() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
   const [initLoading, setInitLoading] = useState(isEdit);
+  const [initError, setInitError] = useState<string | null>(null);
 
   const industries = [
     "AI & Machine Learning",
@@ -50,13 +50,16 @@ export function VentureForm() {
         name: v.name,
         founderName: v.founderName,
         founderEmail: v.founderEmail,
-        industry: v.industry,
+        industry: industries.includes(v.industry) ? v.industry : "Other",
         status: v.status,
         followUpDate: fmtDateInput(v.followUpDate),
         notes: v.notes || "",
       });
       setInitLoading(false);
-    }).catch(() => setInitLoading(false));
+    }).catch((e: any) => {
+      setInitError(e.message || "Couldn't load this venture");
+      setInitLoading(false);
+    });
   }, [id, isEdit]);
 
   function update(field: string, value: string) {
@@ -105,13 +108,29 @@ export function VentureForm() {
   }
 
   if (initLoading) {
+  if (initError) {
     return (
-      <div className="p-6 max-w-3xl mx-auto">
-        <div className="bg-white rounded-2xl border border-brand-100 p-8 text-center">
-          <div className="w-8 h-8 rounded-xl bg-brand-100 text-brand-500 grid place-items-center mx-auto mb-3 animate-pulse-subtle">
-            <span className="text-sm">⟳</span>
+      <div className="p-4 lg:p-6 max-w-3xl mx-auto">
+        <div className="slaky-card p-6 text-center">
+          <p className="text-sm font-semibold text-red-700 mb-1">Couldn't load this venture</p>
+          <p className="text-[13px] text-brand-500 mb-4">{initError}</p>
+          <div className="flex items-center justify-center gap-2.5">
+            <Link to="/ventures">
+              <Button variant="secondary">Back to Directory</Button>
+            </Link>
           </div>
-          <p className="text-sm text-brand-500">Loading venture data…</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+      <div className="p-4 lg:p-6 max-w-3xl mx-auto">
+        <div className="slaky-card p-8 text-center">
+          <div className="w-9 h-9 rounded-xl bg-brand-900 text-white grid place-items-center mx-auto mb-3 animate-pulse-subtle">
+            <span className="text-sm font-bold">F</span>
+          </div>
+          <p className="text-[13px] font-medium text-brand-500">Loading venture data…</p>
         </div>
       </div>
     );
@@ -120,11 +139,22 @@ export function VentureForm() {
   return (
     <div className="p-4 lg:p-6 max-w-3xl mx-auto">
       <PageHeader
-        title={isEdit ? "Edit Venture" : "Add Venture"}
-        subtitle={isEdit ? "Update venture details" : "Each venture automatically gets 3 tasks and a follow-up schedule"}
+        title={isEdit ? "Edit venture" : "List your startup"}
+        subtitle={isEdit ? "Update venture details — changes go live instantly" : "Each venture gets 3 verified tasks + a follow-up schedule, automatically"}
+        breadcrumbs={
+          isEdit
+            ? [
+                { label: "Directory", href: "/ventures" },
+                { label: "Edit venture" },
+              ]
+            : [
+                { label: "Directory", href: "/ventures" },
+                { label: "Add venture" },
+              ]
+        }
         action={
           <Link to={isEdit ? `/ventures/${id}` : "/ventures"}>
-            <Button variant="ghost">Cancel</Button>
+            <Button variant="secondary">Cancel</Button>
           </Link>
         }
       />
@@ -132,7 +162,7 @@ export function VentureForm() {
       <form
         onSubmit={submit}
         noValidate
-        className="bg-white rounded-2xl border border-brand-100 p-6 space-y-5"
+        className="slaky-card p-5 sm:p-6 space-y-5"
       >
         <div className="grid sm:grid-cols-2 gap-4">
           <Input
@@ -195,7 +225,7 @@ export function VentureForm() {
           error={errors.notes}
         />
 
-        <div className="flex items-center justify-end gap-3 pt-4 border-t border-brand-100">
+        <div className="flex items-center justify-end gap-2.5 pt-4 border-t border-brand-100">
           <Link to={isEdit ? `/ventures/${id}` : "/ventures"}>
             <Button variant="ghost">Cancel</Button>
           </Link>
@@ -203,7 +233,7 @@ export function VentureForm() {
             type="submit"
             loading={loading}
           >
-            {loading ? "Saving…" : isEdit ? "Save Changes" : "Create Venture"}
+            {loading ? "Saving…" : isEdit ? "Save changes" : "List startup"}
           </Button>
         </div>
       </form>

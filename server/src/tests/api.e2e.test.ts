@@ -10,11 +10,18 @@ import { Activity } from "../models/Activity.js";
 
 let mongod: MongoMemoryServer;
 let app: any;
+let auth: { Authorization: string };
 
 beforeAll(async () => {
   mongod = await MongoMemoryServer.create();
   await mongoose.connect(mongod.getUri());
   app = createApp();
+  // Register a test account and reuse its token for every API call.
+  const reg = await request(app)
+    .post("/api/auth/register")
+    .send({ name: "Test Operator", email: "operator@test.dev", password: "password123" });
+  expect(reg.status).toBe(201);
+  auth = { Authorization: `Bearer ${reg.body.token}` };
 });
 
 afterAll(async () => {
@@ -45,7 +52,7 @@ async function createVenture(overrides: Record<string, unknown> = {}) {
     notes: "test",
     ...overrides,
   };
-  const res = await request(app).post("/api/ventures").send(payload);
+  const res = await request(app).post("/api/ventures").set(auth).send(payload);
   return res;
 }
 
@@ -57,7 +64,7 @@ async function clearAll() {
 
 describe("validation & error handling", () => {
   it("400 with details for missing/invalid venture fields", async () => {
-    const res = await request(app).post("/api/ventures").send({ name: "", founderEmail: "nope" });
+    const res = await request(app).post("/api/ventures").set(auth).send({ name: "", founderEmail: "nope" });
     expect(res.status).toBe(400);
     expect(res.body.error).toBe("Validation failed");
     expect(Array.isArray(res.body.details)).toBe(true);
@@ -71,19 +78,19 @@ describe("validation & error handling", () => {
   });
 
   it("400 for invalid venture id format", async () => {
-    const res = await request(app).get("/api/ventures/not-an-id");
+    const res = await request(app).get("/api/ventures/not-an-id").set(auth);
     expect(res.status).toBe(400);
     expect(res.body.error).toMatch(/invalid venture id/i);
   });
 
   it("404 for missing venture", async () => {
-    const res = await request(app).get(`/api/ventures/${new mongoose.Types.ObjectId().toHexString()}`);
+    const res = await request(app).get(`/api/ventures/${new mongoose.Types.ObjectId().toHexString()}`).set(auth);
     expect(res.status).toBe(404);
     expect(res.body.error).toMatch(/not found/i);
   });
 
   it("JSON 404 for unknown API path", async () => {
-    const res = await request(app).get("/api/does-not-exist");
+    const res = await request(app).get("/api/does-not-exist").set(auth);
     expect(res.status).toBe(404);
     expect(res.body.error).toMatch(/not found/i);
   });
@@ -100,7 +107,7 @@ describe("Step 6 end-to-end demo workflow", () => {
     expect(res.body.tasks).toHaveLength(3);
     expect(res.body.followUp.status).toBe("pending");
 
-    const detail = await request(app).get(`/api/ventures/${ventureId}`);
+    const detail = await request(app).get(`/api/ventures/${ventureId}`).set(auth);
     expect(detail.body.tasks).toHaveLength(3);
     expect(detail.body.followUp).toBeTruthy();
     const actions = detail.body.activities.map((a: any) => a.action);
@@ -109,7 +116,7 @@ describe("Step 6 end-to-end demo workflow", () => {
   });
 
   it("2. Dashboard reflects the new venture", async () => {
-    const res = await request(app).get("/api/dashboard");
+    const res = await request(app).get("/api/dashboard").set(auth);
     expect(res.status).toBe(200);
     expect(res.body.stats.totalVentures).toBe(1);
     expect(res.body.stats.todaysFollowUps).toBe(1);
@@ -117,25 +124,25 @@ describe("Step 6 end-to-end demo workflow", () => {
   });
 
   it("3. Complete a task → activity generated", async () => {
-    const detail = await request(app).get(`/api/ventures/${ventureId}`);
+    const detail = await request(app).get(`/api/ventures/${ventureId}`).set(auth);
     const taskId = detail.body.tasks[0]._id;
 
-    const done = await request(app).put(`/api/tasks/${taskId}/complete`);
+    const done = await request(app).put(`/api/tasks/${taskId}/complete`).set(auth);
     expect(done.status).toBe(200);
     expect(done.body.status).toBe("completed");
 
     // idempotent: second complete adds no duplicate activity
-    await request(app).put(`/api/tasks/${taskId}/complete`);
+    await request(app).put(`/api/tasks/${taskId}/complete`).set(auth);
     const acts = await Activity.find({ ventureId, action: "task_completed" });
     expect(acts).toHaveLength(1);
   });
 
   it("4. Reschedule follow-up → activity generated, venture date synced", async () => {
-    const detail = await request(app).get(`/api/ventures/${ventureId}`);
+    const detail = await request(app).get(`/api/ventures/${ventureId}`).set(auth);
     const fuId = detail.body.followUp._id;
     const newDate = offsetDate(7);
 
-    const res = await request(app).put(`/api/followups/${fuId}/reschedule`).send({ dueDate: newDate });
+    const res = await request(app).put(`/api/followups/${fuId}/reschedule`).set(auth).send({ dueDate: newDate });
     expect(res.status).toBe(200);
     expect(res.body.status).toBe("pending");
 
@@ -151,7 +158,7 @@ describe("Step 6 end-to-end demo workflow", () => {
     const yesterday = offsetDate(-1);
     await FollowUp.updateOne({ ventureId }, { dueDate: new Date(yesterday), status: "pending" });
 
-    const run1 = await request(app).post("/api/automation/check-followups");
+    const run1 = await request(app).post("/api/automation/check-followups").set(auth);
     expect(run1.status).toBe(200);
     expect(run1.body.overdueFound).toBe(1);
     expect(run1.body.remindersGenerated).toBe(1);
@@ -161,7 +168,7 @@ describe("Step 6 end-to-end demo workflow", () => {
     expect(fu!.status).toBe("overdue");
 
     // Run again → no duplicate reminder
-    const run2 = await request(app).post("/api/automation/check-followups");
+    const run2 = await request(app).post("/api/automation/check-followups").set(auth);
     expect(run2.body.remindersGenerated).toBe(0);
 
     const reminders = await Activity.find({ ventureId, action: "reminder_generated" });
@@ -171,7 +178,7 @@ describe("Step 6 end-to-end demo workflow", () => {
   });
 
   it("6. Delete venture → cascade removes tasks, follow-up, activities", async () => {
-    const res = await request(app).delete(`/api/ventures/${ventureId}`);
+    const res = await request(app).delete(`/api/ventures/${ventureId}`).set(auth);
     expect(res.status).toBe(200);
     expect(res.body.ok).toBe(true);
 
@@ -187,7 +194,7 @@ describe("dashboard v2, analytics, system & automation history", () => {
     await clearAll();
     await createVenture({ name: "Dash Venture", followUpDate: offsetDate(0) });
 
-    const res = await request(app).get("/api/dashboard");
+    const res = await request(app).get("/api/dashboard").set(auth);
     expect(res.status).toBe(200);
     expect(res.body.stats).toMatchObject({ totalVentures: 1, activeVentures: 1, openTasks: 3, completedTasks: 0 });
     expect(res.body.todaysFollowUps).toHaveLength(1);
@@ -197,7 +204,7 @@ describe("dashboard v2, analytics, system & automation history", () => {
   });
 
   it("analytics returns real aggregates with continuous 14-day axis", async () => {
-    const res = await request(app).get("/api/analytics");
+    const res = await request(app).get("/api/analytics").set(auth);
     expect(res.status).toBe(200);
     expect(res.body.venturesByStatus).toEqual(
       expect.arrayContaining([expect.objectContaining({ _id: "Evaluation", count: 1 })])
@@ -213,22 +220,22 @@ describe("dashboard v2, analytics, system & automation history", () => {
   it("manual automation run is recorded in history and reported", async () => {
     // make the follow-up overdue, then run automation manually
     await FollowUp.updateOne({}, { dueDate: new Date(offsetDate(-1)), status: "pending" });
-    const run = await request(app).post("/api/automation/check-followups");
+    const run = await request(app).post("/api/automation/check-followups").set(auth);
     expect(run.status).toBe(200);
     expect(run.body.triggeredBy).toBe("manual");
     expect(run.body.remindersGenerated).toBe(1);
 
-    const dash = await request(app).get("/api/dashboard");
+    const dash = await request(app).get("/api/dashboard").set(auth);
     expect(dash.body.lastAutomationRun).toMatchObject({ triggeredBy: "manual", remindersGenerated: 1 });
 
-    const history = await request(app).get("/api/activity?action=automation_run");
+    const history = await request(app).get("/api/activity?action=automation_run").set(auth);
     expect(history.status).toBe(200);
     expect(history.body).toHaveLength(1);
     expect(history.body[0].meta.triggeredBy).toBe("manual");
   });
 
   it("system status reports honest db mode and email mode", async () => {
-    const res = await request(app).get("/api/system");
+    const res = await request(app).get("/api/system").set(auth);
     expect(res.status).toBe(200);
     expect(res.body.db.mode).toBe("in-memory"); // tests run against in-memory server
     expect(res.body.db.persistent).toBe(false);
@@ -237,12 +244,12 @@ describe("dashboard v2, analytics, system & automation history", () => {
   });
 
   it("activity action filter rejects unknown actions", async () => {
-    const res = await request(app).get("/api/activity?action=bogus");
+    const res = await request(app).get("/api/activity?action=bogus").set(auth);
     expect(res.status).toBe(400);
   });
 
   it("ventures list includes task counts and follow-up", async () => {
-    const res = await request(app).get("/api/ventures");
+    const res = await request(app).get("/api/ventures").set(auth);
     expect(res.status).toBe(200);
     const v = res.body[0];
     expect(v.taskCounts).toMatchObject({ total: 3, completed: 0 });
@@ -250,7 +257,7 @@ describe("dashboard v2, analytics, system & automation history", () => {
   });
 
   it("tasks list populates venture info", async () => {
-    const res = await request(app).get("/api/tasks");
+    const res = await request(app).get("/api/tasks").set(auth);
     expect(res.status).toBe(200);
     expect(res.body.length).toBeGreaterThanOrEqual(3);
     expect(res.body[0].ventureId).toMatchObject({ name: expect.any(String) });
@@ -263,7 +270,7 @@ describe("task creation endpoint", () => {
     const created = await createVenture({ name: "PayFlux" });
     const vid = created.body.venture._id;
 
-    const res = await request(app).post("/api/tasks").send({ ventureId: vid, title: "Extra check-in", dueDate: offsetDate(3) });
+    const res = await request(app).post("/api/tasks").set(auth).send({ ventureId: vid, title: "Extra check-in", dueDate: offsetDate(3) });
     expect(res.status).toBe(201);
     expect(res.body.title).toBe("Extra check-in");
 
@@ -274,7 +281,7 @@ describe("task creation endpoint", () => {
   it("400 for invalid task payload", async () => {
     const created = await createVenture({ name: "MediCore" });
     const vid = created.body.venture._id;
-    const res = await request(app).post("/api/tasks").send({ ventureId: vid, title: "" });
+    const res = await request(app).post("/api/tasks").set(auth).send({ ventureId: vid, title: "" });
     expect(res.status).toBe(400);
   });
 });

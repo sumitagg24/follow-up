@@ -2,16 +2,23 @@
 @tailwind components;
 @tailwind utilities;
 
-* { font-family: Inter, system-ui, -apple-system, sans-serif; }
+* { font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif; }
 
-/* ---------- Scrollbar ---------- */
-::-webkit-scrollbar { width: 6px; height: 6px; }
+body {
+  background: #fafafa;
+  color: #09090b;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* ---------- Scrollbar (Slaky-thin) ---------- */
+::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+::-webkit-scrollbar-thumb { background: #d4d4d8; border-radius: 8px; border: 2px solid #fafafa; }
+::-webkit-scrollbar-thumb:hover { background: #a1a1aa; }
 
 /* ---------- Selection ---------- */
-::selection { background: #fde68a; color: #1e293b; }
+::selection { background: #09090b; color: #ffffff; }
 
 /* ---------- Smooth scroll ---------- */
 html { scroll-behavior: smooth; }
@@ -22,56 +29,59 @@ html { scroll-behavior: smooth; }
   to   { opacity: 1; }
 }
 @keyframes scale-in {
-  from { opacity: 0; transform: translateY(8px) scale(0.96); }
+  from { opacity: 0; transform: translateY(8px) scale(0.98); }
   to   { opacity: 1; transform: translateY(0) scale(1); }
 }
 @keyframes slide-in-right {
-  from { opacity: 0; transform: translateX(20px); }
+  from { opacity: 0; transform: translateX(16px); }
   to   { opacity: 1; transform: translateX(0); }
 }
 @keyframes slide-in-left {
-  from { opacity: 0; transform: translateX(-20px); }
+  from { opacity: 0; transform: translateX(-16px); }
   to   { opacity: 1; transform: translateX(0); }
 }
 @keyframes pulse-subtle {
   0%, 100% { opacity: 1; }
-  50% { opacity: 0.7; }
+  50% { opacity: 0.6; }
 }
 @keyframes shimmer {
   0% { background-position: -200% 0; }
   100% { background-position: 200% 0; }
 }
 
-.animate-fade-in         { animation: fade-in 150ms ease-out both; }
+.animate-fade-in         { animation: fade-in 160ms ease-out both; }
 .animate-scale-in        { animation: scale-in 200ms cubic-bezier(0.16, 1, 0.3, 1) both; }
 .animate-slide-in-right  { animation: slide-in-right 220ms cubic-bezier(0.16, 1, 0.3, 1) both; }
 .animate-slide-in-left   { animation: slide-in-left 220ms ease-out both; }
 .animate-pulse-subtle    { animation: pulse-subtle 2s ease-in-out infinite; }
 
-/* ---------- Focus ---------- */
+/* ---------- Focus (Slaky black ring) ---------- */
 @layer base {
   :focus-visible {
-    outline: 2px solid #f59e0b;
+    outline: 2px solid #09090b;
     outline-offset: 2px;
-    border-radius: 4px;
+    border-radius: 6px;
   }
 
-  /* Remove default button styles */
   button {
     font-family: inherit;
     cursor: pointer;
+    letter-spacing: -0.01em;
   }
 
-  /* Input base styles */
   input, select, textarea {
     font-family: inherit;
     font-size: inherit;
+  }
+
+  h1, h2, h3 {
+    letter-spacing: -0.02em;
   }
 }
 
 /* ---------- Skeleton shimmer ---------- */
 .skeleton-shimmer {
-  background: linear-gradient(90deg, #e2e8f0 25%, #f1f5f9 50%, #e2e8f0 75%);
+  background: linear-gradient(90deg, #e4e4e7 25%, #f4f4f5 50%, #e4e4e7 75%);
   background-size: 200% 100%;
   animation: shimmer 1.5s ease-in-out infinite;
 }
@@ -91,13 +101,43 @@ html { scroll-behavior: smooth; }
   }
 }
 
+/* ---------- Slaky shared surfaces ---------- */
+@layer components {
+  /* Directory-style card: flat white, hairline border, lifts on hover */
+  .slaky-card {
+    @apply bg-white border border-brand-200 rounded-2xl transition-all duration-150;
+  }
+  .slaky-card-hover:hover {
+    @apply border-brand-300 shadow-card -translate-y-px;
+  }
+  /* Black pill primary action, like Slaky's "List your startup" */
+  .slaky-btn-primary {
+    @apply inline-flex items-center justify-center gap-2 bg-brand-900 text-white font-medium rounded-full transition-colors hover:bg-brand-800;
+  }
+  .slaky-btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 bg-white text-brand-900 font-medium rounded-full border border-brand-200 transition-colors hover:border-brand-300 hover:bg-brand-50;
+  }
+  /* Small directory pill */
+  .slaky-pill {
+    @apply inline-flex items-center gap-1 rounded-full border border-brand-200 bg-brand-50 px-2 py-0.5 text-[11px] font-medium text-brand-600;
+  }
+  /* Two-letter startup avatar */
+  .slaky-avatar {
+    @apply grid place-items-center shrink-0 rounded-xl bg-brand-100 text-brand-700 font-semibold select-none;
+  }
+  /* Leaderboard table */
+  .slaky-table-head {
+    @apply text-left px-4 py-2.5 text-[11px] font-semibold text-brand-400 uppercase tracking-[0.08em];
+  }
+}
+
 /* ---------- Utility classes ---------- */
 @layer utilities {
   .text-balance { text-wrap: balance; }
 }
 
-/* ---------- Custom opacity for sidebar bg ---------- */
+/* ---------- Sidebar surface ---------- */
 .sidebar-bg {
   background: #ffffff;
-  border-right: 1px solid #e2e8f0;
+  border-right: 1px solid #e4e4e7;
 }
