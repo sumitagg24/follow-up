@@ -208,4 +208,4 @@ server/
 - In-memory fallback does not persist across restarts — set `MONGODB_URI` for real use
 - Email without SMTP is console-logged and recorded as `reminder_email_dev` activity — actual delivery requires SMTP configuration and verification
 - Activity feed is capped at 200 per request — no pagination UI
-- Dependency advisories: server is clean (`qs` pinned to patched 6.16.x via npm `overrides`, same major). Client retains a moderate advisory in `react-router` (SSR `deserializeErrors` injection, GHSA-337j-9hxr-rhxg) — **not applicable to this app** (SPA only, no SSR); the fix requires the breaking `react-router-dom@7` upgrade, deliberately deferred for stability
+- Dependency advisories: server is clean (`qs` pinned to patched 6.16.x via npm `overrides`). Client uses `react-router-dom@7.18.3`, which resolves the previously-reported advisories. No known vulnerabilities remain.

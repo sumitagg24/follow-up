@@ -1,50 +1,116 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useCallback } from "react";
 import { X } from "lucide-react";
 
-export function Modal({
-  open,
-  onClose,
-  title,
-  children,
-  icon,
-}: {
+interface ModalProps {
   open: boolean;
   onClose: () => void;
   title: string;
   children: React.ReactNode;
-  icon?: "danger";
-}) {
+  size?: "sm" | "md" | "lg" | "xl";
+  icon?: "danger" | "warning" | "info";
+  footer?: React.ReactNode;
+}
+
+export function Modal({ open, onClose, title, children, size = "md", icon, footer }: ModalProps) {
   const panelRef = useRef<HTMLDivElement>(null);
+  const previousActiveElement = useRef<HTMLElement | null>(null);
+
+  const handleKeyDown = useCallback((
+    e: KeyboardEvent
+  ) => {
+    if (e.key === "Escape") {
+      onClose();
+    }
+  }, [onClose]);
 
   useEffect(() => {
     if (!open) return;
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
-    }
-    document.addEventListener("keydown", onKey);
-    panelRef.current?.querySelector<HTMLElement>("input, select, textarea, button")?.focus();
-    return () => document.removeEventListener("keydown", onKey);
-  }, [open, onClose]);
+
+    previousActiveElement.current = document.activeElement as HTMLElement;
+    document.addEventListener("keydown", handleKeyDown);
+    document.body.style.overflow = "hidden";
+
+    const focusable = panelRef.current?.querySelector<HTMLElement>(
+      "input, select, textarea, button:not([disabled])"
+    );
+    focusable?.focus();
+
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = "";
+      previousActiveElement.current?.focus();
+    };
+  }, [open, handleKeyDown]);
 
   if (!open) return null;
 
+  const sizeClasses = {
+    sm: "max-w-sm",
+    md: "max-w-md",
+    lg: "max-w-lg",
+    xl: "max-w-xl",
+  };
+
+  const iconStyles = {
+    danger: { bg: "bg-red-50", color: "text-red-600", accent: "border-red-200" },
+    warning: { bg: "bg-accent-50", color: "text-accent-700", accent: "border-accent-200" },
+    info: { bg: "bg-blue-50", color: "text-blue-700", accent: "border-blue-200" },
+  };
+
+  const currentIconStyle = icon ? iconStyles[icon] : null;
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm animate-fade-in" onClick={onClose} aria-hidden="true" />
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="presentation">
+      <div
+        className="absolute inset-0 bg-black/40 animate-fade-in"
+        onClick={onClose}
+        aria-hidden="true"
+      />
       <div
         ref={panelRef}
         role="dialog"
         aria-modal="true"
-        aria-label={title}
-        className="relative bg-white rounded-2xl shadow-xl w-full max-w-md p-6 animate-scale-in"
+        aria-labelledby="modal-title"
+        className={`
+          relative bg-white rounded-2xl shadow-lg shadow-black/5
+          w-full ${sizeClasses[size]}
+          animate-scale-in
+        `}
       >
-        <div className="flex items-center justify-between mb-4">
-          <h3 className={`text-base font-semibold ${icon === "danger" ? "text-red-700" : ""}`}>{title}</h3>
-          <button onClick={onClose} aria-label="Close dialog" className="p-1 rounded-lg hover:bg-slate-100">
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-brand-100">
+          <div className="flex items-center gap-3">
+            {currentIconStyle && (
+              <div className={`w-8 h-8 rounded-lg ${currentIconStyle.bg} ${currentIconStyle.color} grid place-items-center shrink-0`}>
+                {icon === "danger" && <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1.5a6.5 6.5 0 100 13 6.5 6.5 0 000-13zM7 4.5h2v7H7V4.5zm0 8h2v2H7v-2z"/></svg>}
+                {icon === "warning" && <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1.5a6.5 6.5 0 100 13 6.5 6.5 0 000-13zM7.5 4.5l-.5.5L4.5 6l.5.5L7.5 8l.5-.5L9.5 6l-.5-.5L7.5 4.5zm0 7.5h1v-2h-1v2z"/></svg>}
+                {icon === "info" && <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1.5a6.5 6.5 0 100 13 6.5 6.5 0 000-13zM7.5 4.5a.5.5 0 01.5.5v5a.5.5 0 01-1 0V5a.5.5 0 01.5-.5zm-.5 2a.5.5 0 01.5.5v3a.5.5 0 01-1 0V6.5a.5.5 0 01.5-.5z"/></svg>}
+              </div>
+            )}
+            <h2 id="modal-title" className={`text-base font-semibold ${currentIconStyle?.color || "text-brand-900"}`}>
+              {title}
+            </h2>
+          </div>
+          <button
+            onClick={onClose}
+            aria-label="Close dialog"
+            className="p-1.5 rounded-lg text-brand-400 hover:text-brand-600 hover:bg-brand-100 transition-colors"
+          >
             <X size={18} />
           </button>
         </div>
-        {children}
+
+        {/* Body */}
+        <div className="px-6 py-4">
+          {children}
+        </div>
+
+        {/* Footer */}
+        {footer && (
+          <div className="flex items-center justify-end gap-3 px-6 pb-6 pt-4 border-t border-brand-100">
+            {footer}
+          </div>
+        )}
       </div>
     </div>
   );

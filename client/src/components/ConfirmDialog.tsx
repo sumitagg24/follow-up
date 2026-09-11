@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { AlertTriangle } from "lucide-react";
 import { Modal } from "./Modal";
+import { Button } from "./Button";
+import { Trash2 } from "lucide-react";
 
 export function ConfirmDialog({
   open,
@@ -20,7 +21,6 @@ export function ConfirmDialog({
   busyLabel?: string;
 }) {
   const [busy, setBusy] = useState(false);
-  const pending = open && busy;
 
   async function confirm() {
     setBusy(true);
@@ -33,25 +33,32 @@ export function ConfirmDialog({
   }
 
   return (
-    <Modal open={pending || open} onClose={onClose} title={title} icon="danger">
-      <div className="flex items-start gap-3">
-        <div className="w-10 h-10 rounded-xl bg-red-50 text-red-600 grid place-items-center shrink-0">
-          <AlertTriangle size={18} />
+    <Modal
+      open={open}
+      onClose={onClose}
+      title={title}
+      icon="danger"
+      size="sm"
+      footer={
+        <>
+          <Button variant="ghost" onClick={onClose} disabled={busy}>
+            Cancel
+          </Button>
+          <Button variant="danger" onClick={confirm} loading={busy}>
+            {busy ? busyLabel : confirmLabel}
+          </Button>
+        </>
+      }
+    >
+      <div className="space-y-4">
+        <div className="flex items-start gap-3">
+          <div className="w-10 h-10 rounded-xl bg-red-50 text-red-600 grid place-items-center shrink-0">
+            <Trash2 size={18} />
+          </div>
+          <div>
+            <p className="text-sm text-brand-700">{message}</p>
+          </div>
         </div>
-        <div className="text-sm text-slate-600">{message}</div>
-      </div>
-      <div className="flex justify-end gap-2 mt-6">
-        <button onClick={onClose} disabled={busy} className="px-4 py-2 rounded-xl border text-sm font-medium hover:bg-slate-50 disabled:opacity-50">
-          Cancel
-        </button>
-        <button
-          onClick={confirm}
-          disabled={busy}
-          aria-busy={busy}
-          className="px-4 py-2 rounded-xl bg-red-600 text-white text-sm font-medium hover:bg-red-700 disabled:opacity-50"
-        >
-          {busy ? busyLabel : confirmLabel}
-        </button>
       </div>
     </Modal>
   );

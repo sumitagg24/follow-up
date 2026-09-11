@@ -1,18 +1,28 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { api } from "../api/client";
 import { Header } from "../components/Header";
-import { Link } from "react-router-dom";
-import { usePageTitle } from "../hooks/usePageTitle";
-import { SkeletonRow } from "../components/Skeleton";
+import { PageHeader } from "../components/Card";
+import { ActivityBadge } from "../components/ActivityBadge";
 import { EmptyState } from "../components/EmptyState";
-import { ActivityBadge, ACTIVITY_META } from "../components/ActivityBadge";
-import { Activity as ActivityIcon } from "lucide-react";
+import { SkeletonRow } from "../components/Skeleton";
+import { usePageTitle } from "../hooks/usePageTitle";
+import { Activity as ActivityIcon, Filter } from "lucide-react";
+import { ActivityTypeBadge } from "../components/Badge";
 
-const FILTERS: { key: string; label: string }[] = [
-  { key: "", label: "All" },
-  ...Object.entries(ACTIVITY_META)
-    .filter(([k]) => k !== "automation_run")
-    .map(([k, m]) => ({ key: k, label: m.label })),
+const FILTERS = [
+  { key: "", label: "All events" },
+  { key: "venture_created", label: "Ventures" },
+  { key: "venture_updated", label: "Updates" },
+  { key: "venture_deleted", label: "Deletions" },
+  { key: "task_created", label: "Tasks" },
+  { key: "task_completed", label: "Completions" },
+  { key: "followup_completed", label: "Follow-ups" },
+  { key: "followup_rescheduled", label: "Reschedules" },
+  { key: "followup_overdue", label: "Overdue" },
+  { key: "reminder_generated", label: "Reminders" },
+  { key: "reminder_email_sent", label: "Emails" },
+  { key: "automation_run", label: "Automation" },
 ];
 
 export function ActivityLog() {
@@ -24,7 +34,8 @@ export function ActivityLog() {
 
   useEffect(() => {
     setLoading(true);
-    api.getActivity(action ? { action } : undefined)
+    api
+      .getActivity(action ? { action } : undefined)
       .then(setData)
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
@@ -32,15 +43,24 @@ export function ActivityLog() {
 
   return (
     <div className="p-4 lg:p-6 max-w-4xl mx-auto">
-      <Header title="Activity Log" subtitle="Chronological feed of all system events" />
+      <PageHeader
+        title="Activity Log"
+        subtitle="Chronological feed of all system events"
+      />
 
-      <div className="flex gap-2 mb-4 overflow-x-auto pb-1" role="group" aria-label="Filter by activity type">
+      {/* Filters */}
+      <div className="flex flex-wrap gap-2 mb-6">
         {FILTERS.map((f) => (
           <button
             key={f.key}
             onClick={() => setAction(f.key)}
-            aria-pressed={action === f.key}
-            className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap ${action === f.key ? "bg-slate-900 text-white" : "bg-white border text-slate-600 hover:bg-slate-50"}`}
+            className={`
+              px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-150
+              ${action === f.key
+                ? "bg-brand-900 text-white"
+                : "bg-white border border-brand-200 text-brand-600 hover:bg-brand-50"
+              }
+            `}
           >
             {f.label}
           </button>
@@ -48,26 +68,49 @@ export function ActivityLog() {
       </div>
 
       {loading ? (
-        <div className="space-y-3">{Array.from({ length: 6 }).map((_, i) => <SkeletonRow key={i} />)}</div>
+        <div className="space-y-3">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <SkeletonRow key={i} />
+          ))}
+        </div>
       ) : error ? (
-        <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-sm text-red-700">{error}</div>
+        <div className="bg-red-50 border border-red-200 rounded-2xl p-4 text-sm text-red-700">
+          {error}
+        </div>
       ) : data.length === 0 ? (
         <EmptyState
           icon={ActivityIcon}
           title={action ? `No "${FILTERS.find((f) => f.key === action)?.label}" events` : "No activity yet"}
-          desc={action ? "Try a different filter." : "Actions like creating ventures, completing tasks and running reminder checks will appear here."}
+          description={
+            action
+              ? "Try a different filter to see more events."
+              : "Actions like creating ventures, completing tasks, and running reminder checks will appear here."
+          }
         />
       ) : (
-        <div className="bg-white rounded-2xl border divide-y">
+        <div className="bg-white rounded-2xl border border-brand-100 divide-y divide-brand-50">
           {data.map((a) => (
-            <div key={a._id} className="p-4 flex gap-4">
+            <div key={a._id} className="p-4 flex flex-col sm:flex-row sm:items-start gap-3">
               <div className="flex-1 min-w-0">
-                <div className="text-sm">{a.description}</div>
-                <div className="text-xs text-slate-500 mt-1.5 flex flex-wrap items-center gap-2">
-                  <ActivityBadge action={a.action} />
-                  <span>{new Date(a.createdAt).toLocaleString()}</span>
-                  {a.ventureName && <span>• {a.ventureName}</span>}
-                  {a.ventureId && <Link to={`/ventures/${a.ventureId}`} className="text-blue-600 hover:underline">View venture</Link>}
+                <p className="text-sm text-brand-900 leading-relaxed mb-2">
+                  {a.description}
+                </p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <ActivityTypeBadge action={a.action} />
+                  <span className="text-xs text-brand-500">
+                    {new Date(a.createdAt).toLocaleString()}
+                  </span>
+                  {a.ventureName && (
+                    <span className="text-xs text-brand-400">· {a.ventureName}</span>
+                  )}
+                  {a.ventureId && typeof a.ventureId === "string" && (
+                    <Link
+                      to={`/ventures/${a.ventureId}`}
+                      className="text-xs text-accent-600 hover:text-accent-700 hover:underline"
+                    >
+                      View venture
+                    </Link>
+                  )}
                 </div>
               </div>
             </div>

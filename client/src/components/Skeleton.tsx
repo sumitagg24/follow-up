@@ -1,25 +1,54 @@
-export function Skeleton({ className = "" }: { className?: string }) {
-  return <div className={`animate-pulse rounded-xl bg-slate-200/70 ${className}`} aria-hidden="true" />;
+interface SkeletonProps {
+  className?: string;
+  variant?: "text" | "circular" | "rectangular";
+  width?: string | number;
+  height?: string | number;
 }
 
-export function SkeletonCard({ lines = 2 }: { lines?: number }) {
+export function Skeleton({
+  className = "",
+  variant = "rectangular",
+  width,
+  height,
+}: SkeletonProps) {
+  const variantClasses = {
+    text: "h-4 rounded-md",
+    circular: "rounded-full",
+    rectangular: "rounded-xl",
+  };
+
   return (
-    <div className="bg-white rounded-2xl border p-4 space-y-3" role="status" aria-label="Loading content">
-      <Skeleton className="h-5 w-1/3" />
-      <Skeleton className="h-4 w-2/3" />
-      {lines > 2 && <Skeleton className="h-4 w-1/2" />}
+    <div
+      className={`skeleton-shimmer ${variantClasses[variant]} ${className}`}
+      style={{
+        width: width ?? "100%",
+        height: height ?? (variant === "text" ? "1rem" : "1.5rem"),
+      }}
+      aria-hidden="true"
+    />
+  );
+}
+
+export function SkeletonCard({ lines = 3 }: { lines?: number }) {
+  return (
+    <div className="bg-white rounded-2xl border p-5 space-y-3" role="status" aria-label="Loading content">
+      <Skeleton width="40%" height="1rem" />
+      <Skeleton width="100%" />
+      <Skeleton width="80%" />
+      {lines > 3 && <Skeleton width="60%" />}
+      {lines > 4 && <Skeleton width="75%" />}
     </div>
   );
 }
 
 export function SkeletonStat() {
   return (
-    <div className="bg-white rounded-2xl border p-5 flex items-center justify-between" role="status" aria-label="Loading stat">
+    <div className="bg-white rounded-2xl border p-5 flex items-start justify-between" role="status" aria-label="Loading stat">
       <div className="space-y-2">
-        <Skeleton className="h-3 w-16" />
-        <Skeleton className="h-7 w-10" />
+        <Skeleton variant="text" width="5rem" />
+        <Skeleton variant="text" width="3rem" />
       </div>
-      <Skeleton className="h-10 w-10 rounded-xl" />
+      <Skeleton variant="circular" width="36px" height="36px" />
     </div>
   );
 }
@@ -28,13 +57,14 @@ export function SkeletonRow() {
   return (
     <div className="bg-white rounded-2xl border p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3" role="status" aria-label="Loading row">
       <div className="space-y-2 flex-1">
-        <Skeleton className="h-5 w-40" />
-        <Skeleton className="h-4 w-56" />
+        <Skeleton width="60%" />
+        <Skeleton width="100%" />
       </div>
       <div className="flex gap-2">
-        <Skeleton className="h-8 w-20 rounded-lg" />
-        <Skeleton className="h-8 w-20 rounded-lg" />
+        <Skeleton width="80px" height="32px" />
+        <Skeleton width="80px" height="32px" />
       </div>
     </div>
   );
 }
+

@@ -1,7 +1,8 @@
-const BASE = (import.meta as any).env?.VITE_API_URL || "";
+const BASE = import.meta.env?.VITE_API_URL || "";
 
 async function req<T>(path: string, opts: RequestInit = {}): Promise<T> {
-  const res = await fetch(BASE + path, {
+  const url = BASE ? BASE.replace(/\/$/, "") + path : path;
+  const res = await fetch(url, {
     headers: { "Content-Type": "application/json" },
     ...opts,
     ...(opts.body && typeof opts.body !== "string" ? {} : {}),

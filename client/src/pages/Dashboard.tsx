@@ -2,17 +2,49 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api/client";
 import { Header } from "../components/Header";
-import { FollowUpBadge } from "../components/StatusBadge";
+import { Card, StatCard, SectionHeader, PageHeader } from "../components/Card";
+import { FollowUpBadge, VentureBadge, TaskBadge } from "../components/StatusBadge";
 import { EmptyState } from "../components/EmptyState";
-import { SkeletonCard, SkeletonRow, SkeletonStat } from "../components/Skeleton";
-import { fmtDate } from "../utils/format";
+import { SkeletonCard, SkeletonStat, SkeletonRow } from "../components/Skeleton";
 import { useToast } from "../components/Toast";
 import { usePageTitle } from "../hooks/usePageTitle";
-import { Building2, AlertTriangle, CheckCircle, Calendar, Play, Plus, ArrowRight, Bot, ListTodo, Flame } from "lucide-react";
+import {
+  Building2,
+  AlertTriangle,
+  CheckCircle,
+  Calendar,
+  Play,
+  Plus,
+  ArrowRight,
+  Bot,
+  ListTodo,
+  Flame,
+  Clock,
+  Users,
+  TrendingUp,
+} from "lucide-react";
 import { Modal } from "../components/Modal";
+import { Button } from "../components/Button";
+import { Input } from "../components/Input";
+
+interface DashboardData {
+  stats: {
+    totalVentures: number;
+    activeVentures: number;
+    todaysFollowUps: number;
+    overdueFollowUps: number;
+    openTasks: number;
+    completedTasks: number;
+  };
+  todaysFollowUps: any[];
+  overdueFollowUps: any[];
+  upcomingFollowUps: any[];
+  recentActivity: any[];
+  lastAutomationRun: any;
+}
 
 export function Dashboard() {
-  const [data, setData] = useState<any>(null);
+  const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [resched, setResched] = useState<any>(null);
@@ -22,197 +54,434 @@ export function Dashboard() {
   usePageTitle("Dashboard");
 
   async function load() {
-    setLoading(true); setError(null);
-    try { setData(await api.getDashboard()); }
-    catch (e: any) { setError(e.message); }
+    setLoading(true);
+    setError(null);
+    try {
+      const result = await api.getDashboard();
+      setData(result);
+    } catch (e: any) {
+      setError(e.message);
+    }
     setLoading(false);
   }
-  useEffect(() => { load(); }, []);
+
+  useEffect(() => {
+    load();
+  }, []);
 
   async function runAutomation() {
     setRunning(true);
     try {
       const r = await api.runAutomation();
-      toast.push(`Checked ${r.checked} follow-ups • ${r.remindersGenerated} reminders`, "success");
+      toast.push(`Checked ${r.checked} follow-ups · ${r.remindersGenerated} reminders`, "success");
       await load();
-    } catch (e: any) { toast.push(e.message, "error"); }
+    } catch (e: any) {
+      toast.push(e.message, "error");
+    }
     setRunning(false);
   }
-  async function complete(fu: any) {
-    try { await api.completeFollowUp(fu._id); toast.push("Follow-up completed", "success"); load(); }
-    catch (e: any) { toast.push(e.message, "error"); }
+
+  async function completeFollowUp(fu: any) {
+    try {
+      await api.completeFollowUp(fu._id);
+      toast.push("Follow-up completed", "success");
+      load();
+    } catch (e: any) {
+      toast.push(e.message, "error");
+    }
   }
+
   async function saveReschedule() {
-    if (!newDate) return;
-    try { await api.rescheduleFollowUp(resched._id, newDate); toast.push("Rescheduled", "success"); setResched(null); load(); }
-    catch (e: any) { toast.push(e.message, "error"); }
+    if (!newDate || !resched) return;
+    try {
+      await api.rescheduleFollowUp(resched._id, newDate);
+      toast.push("Follow-up rescheduled", "success");
+      setResched(null);
+      load();
+    } catch (e: any) {
+      toast.push(e.message, "error");
+    }
   }
 
-  if (loading) return (
-    <div className="p-4 lg:p-6 max-w-6xl mx-auto">
-      <div className="grid grid-cols-2 lg:grid-cols-6 gap-3 mb-6">
-        {Array.from({ length: 6 }).map((_, i) => <SkeletonStat key={i} />)}
-      </div>
-      <div className="grid lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 space-y-3">
-          {Array.from({ length: 3 }).map((_, i) => <SkeletonRow key={i} />)}
-        </div>
-        <div><SkeletonCard lines={3} /><div className="h-3" /><SkeletonCard lines={3} /></div>
-      </div>
-    </div>
-  );
-  if (error) return <div className="p-6"><div className="bg-red-50 border border-red-200 rounded-xl p-4 text-sm text-red-700">{error}</div></div>;
+  const greeting = new Date().getHours() < 12
+    ? "Good morning"
+    : new Date().getHours() < 17
+    ? "Good afternoon"
+    : "Good evening";
 
-  const { stats, todaysFollowUps, overdueFollowUps, upcomingFollowUps, recentActivity, lastAutomationRun } = data;
+  const now = new Date();
+  const dateStr = now.toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" });
 
-  function FollowUpRow({ fu, tone }: { fu: any; tone?: "overdue" }) {
-    const v = fu.ventureId;
-    if (!v || typeof v === "string") return null;
+  if (loading) {
     return (
-      <div className={`bg-white rounded-2xl border p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${tone === "overdue" ? "border-red-200" : ""}`}>
-        <div className="min-w-0">
-          <div className="font-medium truncate flex items-center gap-2">
-            {tone === "overdue" && <Flame size={14} className="text-red-500 shrink-0" aria-hidden="true" />}
-            {v.name}
-          </div>
-          <div className="text-sm text-slate-500 truncate">{v.founderName} • {fmtDate(fu.dueDate)}</div>
-          <div className="mt-2"><FollowUpBadge status={fu.status} /></div>
+      <div className="p-4 lg:p-6 max-w-7xl mx-auto">
+        <div className="mb-6">
+          <div className="h-7 w-48 rounded-lg skeleton-shimmer mb-3" />
+          <div className="h-4 w-64 rounded-lg skeleton-shimmer" />
         </div>
-        <div className="flex flex-wrap gap-2 shrink-0">
-          <button onClick={() => complete(fu)} className="min-h-[44px] px-3 py-2 rounded-xl bg-emerald-600 text-white text-xs font-medium hover:bg-emerald-700">Complete</button>
-          <button onClick={() => { setResched(fu); setNewDate(new Date(Date.now() + 86400000).toISOString().slice(0, 10)); }} className="min-h-[44px] px-3 py-2 rounded-xl bg-white border text-xs font-medium hover:bg-slate-50">Reschedule</button>
-          <Link to={`/ventures/${v._id}`} className="min-h-[44px] px-3 py-2 rounded-xl bg-white border text-xs font-medium hover:bg-slate-50">View</Link>
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <SkeletonStat key={i} />
+          ))}
+        </div>
+        <div className="grid lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 space-y-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <SkeletonRow key={i} />
+            ))}
+          </div>
+          <div className="space-y-4">
+            <SkeletonCard lines={4} />
+            <SkeletonCard lines={3} />
+          </div>
         </div>
       </div>
     );
   }
 
+  if (error) {
+    return (
+      <div className="p-6 max-w-7xl mx-auto">
+        <div className="bg-red-50 border border-red-200 rounded-2xl p-4 text-sm text-red-700">
+          {error}
+        </div>
+      </div>
+    );
+  }
+
+  if (!data) return null;
+
   return (
-    <div className="p-4 lg:p-6 max-w-6xl mx-auto">
-      <Header title="Dashboard" subtitle="Live view of your venture pipeline and follow-ups"      action={
-        <div className="flex flex-wrap gap-2">
-          <button onClick={runAutomation} disabled={running} aria-busy={running} className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white border text-sm font-medium hover:bg-slate-50 disabled:opacity-50 min-h-[44px]">
-            <Play size={16} /> {running ? "Running…" : "Run Reminder Check"}
-          </button>
-          <Link to="/ventures/new" className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-900 text-white text-sm font-medium hover:bg-black min-h-[44px]">
-            <Plus size={16} /> Add Venture
-          </Link>
-        </div>
-      } />
+    <div className="p-4 lg:p-6 max-w-7xl mx-auto">
+      {/* Header */}
+      <PageHeader
+        title="Dashboard"
+        subtitle={`${greeting} — ${dateStr}`}
+        action={
+          <div className="flex items-center gap-3">
+            <Button
+              variant="secondary"
+              onClick={runAutomation}
+              disabled={running}
+              icon={<Play size={15} />}
+              iconRight={<Clock size={14} />}
+            >
+              {running ? "Running..." : "Run Reminder Check"}
+            </Button>
+            <Link to="/ventures/new">
+              <Button icon={<Plus size={15} />} className="bg-brand-900 hover:bg-brand-800">
+                New Venture
+              </Button>
+            </Link>
+          </div>
+        }
+      />
 
-      {/* KPI cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
-        <Link to="/ventures" className="bg-white rounded-2xl border p-4 flex items-center justify-between hover:border-slate-300">
-          <div><div className="text-[11px] font-medium text-slate-500 uppercase tracking-wide">Ventures</div><div className="text-xl font-semibold mt-1">{stats.totalVentures}</div></div>
-          <Building2 size={16} className="text-slate-400" />
-        </Link>
-        <Link to="/ventures" className="bg-white rounded-2xl border p-4 flex items-center justify-between hover:border-slate-300">
-          <div><div className="text-[11px] font-medium text-slate-500 uppercase tracking-wide">Active</div><div className="text-xl font-semibold mt-1">{stats.activeVentures}</div></div>
-          <CheckCircle size={16} className="text-emerald-500" />
-        </Link>
-        <div className="bg-white rounded-2xl border p-4 flex items-center justify-between">
-          <div><div className="text-[11px] font-medium text-slate-500 uppercase tracking-wide">Due Today</div><div className="text-xl font-semibold mt-1">{stats.todaysFollowUps}</div></div>
-          <Calendar size={16} className="text-blue-500" />
+      {/* Alert banner */}
+      {data.overdueFollowUps.length > 0 && (
+        <div className="mb-6 bg-red-50 border border-red-200 rounded-2xl p-4 flex items-start gap-3 animate-fade-in">
+          <div className="w-8 h-8 rounded-lg bg-red-100 text-red-600 grid place-items-center shrink-0">
+            <Flame size={16} />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-red-800">
+              {data.overdueFollowUps.length} follow-up{data.overdueFollowUps.length !== 1 ? "s" : ""} overdue
+            </p>
+            <p className="text-sm text-red-700 mt-0.5">
+              Reach out to founders as soon as possible.
+            </p>
+          </div>
         </div>
-        <div className="bg-white rounded-2xl border p-4 flex items-center justify-between">
-          <div><div className="text-[11px] font-medium text-slate-500 uppercase tracking-wide">Overdue</div><div className="text-xl font-semibold mt-1">{stats.overdueFollowUps}</div></div>
-          <AlertTriangle size={16} className="text-red-500" />
-        </div>
-        <div className="bg-white rounded-2xl border p-4 flex items-center justify-between">
-          <div><div className="text-[11px] font-medium text-slate-500 uppercase tracking-wide">Open Tasks</div><div className="text-xl font-semibold mt-1">{stats.openTasks}</div></div>
-          <ListTodo size={16} className="text-violet-500" />
-        </div>
-        <div className="bg-white rounded-2xl border p-4 flex items-center justify-between">
-          <div><div className="text-[11px] font-medium text-slate-500 uppercase tracking-wide">Tasks Done</div><div className="text-xl font-semibold mt-1">{stats.completedTasks}</div></div>
-          <CheckCircle size={16} className="text-emerald-500" />
-        </div>
+      )}
+
+      {/* KPI Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+        <StatCard
+          label="Total Ventures"
+          value={data.stats.totalVentures}
+          icon={<Building2 size={18} />}
+        />
+        <StatCard
+          label="Active Ventures"
+          value={data.stats.activeVentures}
+          icon={<Users size={18} />}
+        />
+        <StatCard
+          label="Due Today"
+          value={data.stats.todaysFollowUps}
+          icon={<Calendar size={18} />}
+          trend={data.stats.todaysFollowUps > 0 ? { value: data.stats.todaysFollowUps, label: "due today" } : undefined}
+        />
+        <StatCard
+          label="Overdue"
+          value={data.stats.overdueFollowUps}
+          icon={<AlertTriangle size={18} className="text-red-500" />}
+          className={data.stats.overdueFollowUps > 0 ? "border-red-200" : ""}
+        />
+        <StatCard
+          label="Open Tasks"
+          value={data.stats.openTasks}
+          icon={<ListTodo size={18} />}
+        />
+        <StatCard
+          label="Completed Tasks"
+          value={data.stats.completedTasks}
+          icon={<CheckCircle size={18} className="text-emerald-500" />}
+        />
       </div>
 
-      {/* Automation summary strip */}
-      <div className="bg-white rounded-2xl border p-4 mb-6 flex flex-col sm:flex-row sm:items-center gap-3">
-        <div className="w-9 h-9 rounded-xl bg-slate-900 text-white grid place-items-center shrink-0"><Bot size={16} /></div>
-        <div className="flex-1 min-w-0 text-sm">
-          <b>Automation</b> — {lastAutomationRun
-            ? <>last run {new Date(lastAutomationRun.at).toLocaleString()} ({lastAutomationRun.triggeredBy}): {lastAutomationRun.checked} checked, {lastAutomationRun.overdueFound} overdue, {lastAutomationRun.remindersGenerated} reminders, {lastAutomationRun.emailsSent} emails</>
-            : <>never run yet — the daily schedule fires at 09:00, or trigger it now</>}
-        </div>
-        <Link to="/automation" className="text-sm text-slate-600 hover:text-slate-900 inline-flex items-center gap-1 shrink-0">Automation Center <ArrowRight size={14} /></Link>
-      </div>
-
+      {/* Main content */}
       <div className="grid lg:grid-cols-3 gap-6">
+        {/* Today's and Overdue follow-ups — span 2 cols */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Today's follow-ups */}
-          <section aria-labelledby="h-today">
-            <div className="flex items-center justify-between mb-3">
-              <h2 id="h-today" className="font-semibold">Today's Follow-ups</h2>
+          {/* Today's Follow-ups */}
+          <SectionHeader
+            title="Today's Follow-ups"
+            description={data?.todaysFollowUps.length ? `${data.todaysFollowUps.length} follow-up${data.todaysFollowUps.length !== 1 ? "s" : ""} due today` : "Nothing due today"}
+          />
+          {(!data?.todaysFollowUps || data.todaysFollowUps.length === 0) ? (
+            <EmptyState
+              icon={CheckCircle}
+              title="Nothing due today"
+              description="All caught up. Run a reminder check to scan for overdue items."
+            />
+          ) : (
+            <div className="space-y-3">
+              {data.todaysFollowUps.map((fu: any) => (
+                <FollowUpRow key={fu._id} fu={fu} onReschedule={setResched} onComplete={completeFollowUp} />
+              ))}
             </div>
-            {todaysFollowUps.length === 0
-              ? <EmptyState icon={CheckCircle} title="No follow-ups due today" desc="All caught up. Run a reminder check to scan for overdue items." />
-              : <div className="space-y-3">{todaysFollowUps.map((fu: any) => <FollowUpRow key={fu._id} fu={fu} />)}</div>}
-          </section>
+          )}
 
           {/* Overdue */}
-          <section aria-labelledby="h-overdue">
-            <div className="flex items-center justify-between mb-3">
-              <h2 id="h-overdue" className="font-semibold flex items-center gap-2">
-                Overdue Follow-ups
-                {overdueFollowUps.length > 0 && <span className="px-2 py-0.5 rounded-full bg-red-100 text-red-700 text-xs font-semibold">{overdueFollowUps.length}</span>}
-              </h2>
-            </div>
-            {overdueFollowUps.length === 0
-              ? <EmptyState icon={CheckCircle} title="Nothing overdue" desc="Every follow-up is on schedule." />
-              : <div className="space-y-3">{overdueFollowUps.map((fu: any) => <FollowUpRow key={fu._id} fu={fu} tone="overdue" />)}</div>}
-          </section>
+          {data?.overdueFollowUps && data.overdueFollowUps.length > 0 && (
+            <>
+              <SectionHeader
+                title="Overdue"
+                description={`${data.overdueFollowUps.length} overdue follow-up${data.overdueFollowUps.length !== 1 ? "s" : ""}`}
+              />
+              <div className="space-y-3">
+                {data.overdueFollowUps.map((fu: any) => (
+                  <FollowUpRow key={fu._id} fu={fu} tone="overdue" onReschedule={setResched} onComplete={completeFollowUp} />
+                ))}
+              </div>
+            </>
+          )}
 
           {/* Upcoming */}
-          <section aria-labelledby="h-upcoming">
-            <div className="flex items-center justify-between mb-3">
-              <h2 id="h-upcoming" className="font-semibold">Upcoming (next 7 days)</h2>
-            </div>
-            {upcomingFollowUps.length === 0
-              ? <EmptyState icon={Calendar} title="No upcoming follow-ups" desc="Reschedule a completed follow-up or add a new venture." />
-              : <div className="space-y-3">{upcomingFollowUps.map((fu: any) => {
-                  const v = fu.ventureId;
-                  if (!v || typeof v === "string") return null;
-                  return (
-                    <div key={fu._id} className="bg-white rounded-2xl border p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                      <div className="min-w-0">
-                        <div className="font-medium truncate">{v.name}</div>
-                        <div className="text-sm text-slate-500 truncate">{v.founderName} • due {fmtDate(fu.dueDate)}</div>
-                      </div>
-                      <Link to={`/ventures/${v._id}`} className="min-h-[44px] px-3 py-2 rounded-xl bg-white border text-xs font-medium hover:bg-slate-50 flex items-center shrink-0">View</Link>
-                    </div>
-                  );
-                })}</div>}
-          </section>
+          {data?.upcomingFollowUps && data.upcomingFollowUps.length > 0 && (
+            <>
+              <SectionHeader
+                title="Upcoming (next 7 days)"
+                description="Future follow-ups scheduled"
+              />
+              <div className="space-y-3">
+                {data.upcomingFollowUps.map((fu: any) => (
+                  <UpcomingRow key={fu._id} fu={fu} />
+                ))}
+              </div>
+            </>
+          )}
         </div>
 
-        {/* Recent activity */}
-        <div>
-          <h2 className="font-semibold mb-3">Recent Activity</h2>
-          <div className="bg-white rounded-2xl border divide-y">
-            {recentActivity.length === 0 ? <div className="p-6 text-sm text-slate-500">No activity yet</div> : recentActivity.slice(0, 8).map((a: any) => (
-              <div key={a._id} className="p-4">
-                <div className="text-sm leading-snug">{a.description}</div>
-                <div className="text-xs text-slate-500 mt-1">{new Date(a.createdAt).toLocaleString()}</div>
+        {/* Right column — activity + automation */}
+        <div className="space-y-6">
+          {/* Automation summary */}
+          <Card padding="md">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-9 h-9 rounded-xl bg-brand-900 text-white grid place-items-center shrink-0">
+                <Bot size={16} />
               </div>
-            ))}
-            <Link to="/activity" className="block p-3 text-center text-sm text-slate-600 hover:bg-slate-50 rounded-b-2xl">View all activity</Link>
-          </div>
+              <div>
+                <h3 className="text-sm font-semibold text-brand-900">Automation</h3>
+                <p className="text-xs text-brand-500">Daily reminder check</p>
+              </div>
+            </div>
+            {data?.lastAutomationRun ? (
+              <div className="text-sm text-brand-600 space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-brand-500">Last run</span>
+                  <span className="text-brand-900">{new Date(data.lastAutomationRun.at).toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-brand-500">Triggered by</span>
+                  <span className="text-brand-900 capitalize">{data.lastAutomationRun.triggeredBy}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-brand-500">Checked</span>
+                  <span className="text-brand-900 font-medium">{data.lastAutomationRun.checked} ventures</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-brand-500">Reminders</span>
+                  <span className="text-brand-900 font-medium">{data.lastAutomationRun.remindersGenerated}</span>
+                </div>
+                {data.lastAutomationRun.emailsSent > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-brand-500">Emails sent</span>
+                    <span className="text-brand-900 font-medium text-emerald-600">{data.lastAutomationRun.emailsSent}</span>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <p className="text-sm text-brand-500">Never run yet — the daily schedule fires at 09:00.</p>
+            )}
+            <div className="mt-4 pt-3 border-t border-brand-100 flex items-center justify-between">
+              <span className="text-xs text-brand-500">Schedule: Daily 09:00</span>
+              <Link to="/automation" className="text-xs text-accent-600 hover:text-accent-700 font-medium flex items-center gap-1">
+                Automation Center <ArrowRight size={12} />
+              </Link>
+            </div>
+          </Card>
+
+          {/* Recent activity */}
+          <Card padding="md">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-semibold text-brand-900">Recent Activity</h3>
+              <Link to="/activity" className="text-xs text-accent-600 hover:text-accent-700 font-medium">
+                View all <ArrowRight size={12} />
+              </Link>
+            </div>
+            {(!data?.recentActivity || data.recentActivity.length === 0) ? (
+              <p className="text-sm text-brand-500 py-4">No activity yet</p>
+            ) : (
+              <div className="space-y-3">
+                {data.recentActivity.slice(0, 8).map((a: any) => (
+                  <div key={a._id} className="p-3 rounded-xl bg-brand-50 border border-brand-100">
+                    <p className="text-sm text-brand-900 leading-relaxed">{a.description}</p>
+                    <p className="text-xs text-brand-500 mt-1.5">
+                      {new Date(a.createdAt).toLocaleString()}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
         </div>
       </div>
 
-      <Modal open={!!resched} onClose={() => setResched(null)} title="Reschedule follow-up">
+      {/* Reschedule modal */}
+      <Modal
+        open={!!resched}
+        onClose={() => setResched(null)}
+        title="Reschedule Follow-up"
+        size="sm"
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setResched(null)}>
+              Cancel
+            </Button>
+            <Button onClick={() => { setNewDate(""); saveReschedule(); }} disabled={!newDate}>
+              Save
+            </Button>
+          </>
+        }
+      >
         <div className="space-y-4">
-          <label htmlFor="dash-resched-date" className="block text-sm font-medium">New follow-up date
-            <input id="dash-resched-date" type="date" value={newDate} onChange={(e) => setNewDate(e.target.value)} className="mt-1 w-full rounded-xl border px-3 py-2.5 text-sm" />
-          </label>
-          <div className="flex justify-end gap-2">
-            <button onClick={() => setResched(null)} className="px-4 py-2 rounded-xl border text-sm">Cancel</button>
-            <button onClick={saveReschedule} className="px-4 py-2 rounded-xl bg-slate-900 text-white text-sm">Save</button>
-          </div>
+          <p className="text-sm text-brand-600">
+            Set a new date for this follow-up.
+          </p>
+          <Input
+            type="date"
+            label="New date"
+            value={newDate}
+            onChange={(e) => setNewDate(e.target.value)}
+          />
         </div>
       </Modal>
     </div>
   );
+}
+
+function FollowUpRow({ fu, tone, onReschedule, onComplete }: { fu: any; tone?: "overdue"; onReschedule: (fu: any) => void; onComplete: (fu: any) => void }) {
+  const v = fu.ventureId;
+  if (!v || typeof v === "string") return null;
+
+  return (
+    <div
+      className={`
+        bg-white rounded-2xl border p-4
+        ${tone === "overdue" ? "border-red-200 bg-red-50/30" : "border-brand-100"}
+        transition-all duration-150
+      `}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2 mb-1">
+            {tone === "overdue" && (
+              <span className="shrink-0">
+                <Flame size={13} className="text-red-500" />
+              </span>
+            )}
+            <span className="font-medium text-brand-900 truncate">{v.name}</span>
+          </div>
+          <p className="text-sm text-brand-500 truncate">
+            {v.founderName} · Due {formatDate(fu.dueDate)}
+          </p>
+          <div className="mt-2">
+            <FollowUpBadge status={fu.status} />
+          </div>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <Link
+            to={`/ventures/${v._id}`}
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-brand-200 text-sm text-brand-700 hover:bg-brand-50 transition-colors min-h-[36px]"
+          >
+            View
+            <ArrowRight size={12} />
+          </Link>
+          {fu.status !== "completed" && (
+            <>
+              <button
+                onClick={() => onReschedule(fu)}
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-brand-200 text-sm text-brand-700 hover:bg-brand-50 transition-colors min-h-[36px]"
+              >
+                <Calendar size={13} />
+                Reschedule
+              </button>
+              <button
+                onClick={() => onComplete(fu)}
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 transition-colors min-h-[36px]"
+              >
+                <CheckCircle size={13} />
+                Complete
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function UpcomingRow({ fu }: { fu: any }) {
+  const v = fu.ventureId;
+  if (!v || typeof v === "string") return null;
+
+  return (
+    <div className="bg-white rounded-2xl border border-brand-100 p-4 transition-all duration-150">
+      <div className="flex items-center justify-between">
+        <div className="min-w-0 flex-1">
+          <p className="font-medium text-brand-900 truncate">{v.name}</p>
+          <p className="text-sm text-brand-500 truncate">
+            {v.founderName} · Due {formatDate(fu.dueDate)}
+          </p>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <FollowUpBadge status={fu.status} />
+          <Link
+            to={`/ventures/${v._id}`}
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-brand-200 text-sm text-brand-700 hover:bg-brand-50 transition-colors min-h-[36px]"
+          >
+            View <ArrowRight size={12} />
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function formatDate(dateStr: string): string {
+  if (!dateStr) return "-";
+  const d = new Date(dateStr);
+  return d.toLocaleDateString("en-IN", { day: "numeric", month: "short" });
 }
